@@ -1,5 +1,7 @@
 # 💔 Fractured Hearts
 
+Based on the [original Modrinth datapack description](https://modrinth.com/datapack/fractured-hearts). This fork targets Minecraft 26.3 and adds file-based configuration to the Fabric mod. See the [README](README.md) for build and technical details.
+
 Every death shatters your hearts. Recover them with rare apples, or face oblivion.
 
 Fractured Hearts adds a permanent death penalty system to Minecraft — each time you die, you lose hearts. Recover them by crafting expensive enchanted golden apples, or enable permadeath for the ultimate hardcore challenge. Steal hearts from your enemies in PvP, customize everything, and make every decision matter.
@@ -22,15 +24,46 @@ When enabled and a player reaches 0 hearts:
 - Player enters spectator mode
 - Cannot respawn
 
-## Default Settings
+## Default Settings for This Fork
 
-- Max Hearts: 20 (40 health)
+- Max Hearts: 10 (20 health)
 - Min Hearts: 1 (2 health)
 - Loss per Death: 1 heart
 - Gain per Apple: 1 heart
 - Starting Hearts: 10 (20 health)
 - Permadeath: Disabled
 - Heart Steal: Disabled
+
+The original datapack's maximum was 20 hearts (40 health points). Existing config files are not overwritten, so a server upgrading from an earlier fork version may still have that cap until it is changed manually.
+
+### Fabric Mod Configuration
+
+On first server start, the Fabric mod creates `config/fractured-hearts.json`:
+
+```json
+{
+  "maxHealth": 20,
+  "minimumHealth": 2,
+  "healthPerApple": 2,
+  "healthLostPerDeath": 2,
+  "permadeath": false,
+  "pvpHeartSteal": false
+}
+```
+
+These numbers are **health points**: 2 health points equal 1 heart. Edit the file, then run `/fracturedhearts reload` or restart the server. Admin commands also change the settings and save them to the file immediately:
+
+| Command | Description |
+| --- | --- |
+| `/fracturedhearts ceiling <health points>` | Set the maximum health |
+| `/fracturedhearts floor <health points>` | Set the minimum health |
+| `/fracturedhearts gain <health points>` | Set health gained per apple |
+| `/fracturedhearts loss <health points>` | Set health lost per death |
+| `/fracturedhearts permadeath <true\|false\|toggle>` | Set permadeath |
+| `/fracturedhearts heartsteal <true\|false\|toggle>` | Set PvP heart stealing |
+| `/fracturedhearts reload` | Reload the config file |
+
+The standalone datapack cannot read a server JSON file. Its defaults can be set when the pack is built; see the [README](README.md#standalone-datapack).
 
 ## Customization & Settings
 
