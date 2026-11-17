@@ -1,0 +1,15 @@
+{
+  "criteria": {
+    "requirement": {
+      "trigger": "minecraft:consume_item",
+      "conditions": {
+        "item": {
+          "items": ["minecraft:enchanted_golden_apple"]
+        }
+      }
+    }
+  },
+  "rewards": {
+    "function": "fractured_hearts:mod/consume_apple"
+  }
+}

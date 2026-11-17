@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -11,10 +13,17 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.permissions.LevelBasedPermissionSet;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.ReadOnlyScoreInfo;
@@ -34,21 +43,42 @@ public final class FracturedHearts implements ModInitializer {
     private static final Logger LOGGER = LoggerFactory.getLogger("Fractured Hearts");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("fractured-hearts.json");
+    private static final Identifier HEALTH_MODIFIER_ID = Identifier.fromNamespaceAndPath("fractured_hearts", "maximum_health");
     private static Config currentConfig = new Config();
+    private static HeartStore hearts;
+    private static boolean uninstalled;
 
     @Override
     public void onInitialize() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             var root = Commands.literal("fracturedhearts")
-                    .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
-                    .then(Commands.literal("reload").executes(context -> reload(context.getSource())))
-                    .then(Commands.literal("uninstall").executes(context -> uninstall(context.getSource())))
-                    .then(Commands.literal("markpermadeath").executes(context -> markPermadeath(context.getSource())));
+                    .then(Commands.literal("status").executes(context -> status(context.getSource())))
+                    .then(Commands.literal("toggle")
+                            .then(Commands.literal("sounds").executes(context -> toggle(context.getSource(), "sounds")))
+                            .then(Commands.literal("messages").executes(context -> toggle(context.getSource(), "messages")))
+                            .then(Commands.literal("particles").executes(context -> toggle(context.getSource(), "particles"))))
+                    .then(Commands.literal("consumeapple")
+                            .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                            .executes(context -> consumeApple(context.getSource())))
+                    .then(Commands.literal("reload")
+                            .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                            .executes(context -> reload(context.getSource())))
+                    .then(Commands.literal("uninstall")
+                            .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                            .executes(context -> uninstall(context.getSource())))
+                    .then(Commands.literal("sethearts")
+                            .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                            .then(Commands.argument("player", EntityArgument.player())
+                                    .then(Commands.argument("points", IntegerArgumentType.integer(1))
+                                            .executes(context -> setHearts(context.getSource(),
+                                                    EntityArgument.getPlayer(context, "player"),
+                                                    IntegerArgumentType.getInteger(context, "points"))))));
             root.then(integerSetting("ceiling", (config, value) -> config.maxHealth = value));
             root.then(integerSetting("floor", (config, value) -> config.minimumHealth = value));
             root.then(integerSetting("gain", (config, value) -> config.healthPerApple = value));
             root.then(integerSetting("loss", (config, value) -> config.healthLostPerDeath = value));
             root.then(Commands.literal("permadeath")
+                    .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                     .then(Commands.literal("toggle").executes(context -> change(context.getSource(),
                             config -> config.permadeath = !config.permadeath, "permadeath")))
                     .then(Commands.literal("true").executes(context -> change(context.getSource(),
@@ -56,6 +86,7 @@ public final class FracturedHearts implements ModInitializer {
                     .then(Commands.literal("false").executes(context -> change(context.getSource(),
                             config -> config.permadeath = false, "permadeath"))));
             root.then(Commands.literal("heartsteal")
+                    .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                     .then(Commands.literal("toggle").executes(context -> change(context.getSource(),
                             config -> config.pvpHeartSteal = !config.pvpHeartSteal, "heartsteal")))
                     .then(Commands.literal("true").executes(context -> change(context.getSource(),
@@ -67,19 +98,39 @@ public final class FracturedHearts implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             try {
                 Config config = loadConfig(server);
-                applyConfig(server, config);
+                hearts = HeartStore.load(server);
+                hearts.importAndDropScoreboards(server);
+                runCommand(server, "schedule clear fractured_hearts:internals/loop");
+                runCommand(server, "schedule clear fractured_hearts:pvp/cleanup_killer_tags");
                 currentConfig = config;
-                LOGGER.info("Loaded configuration from {}", CONFIG_PATH);
+                uninstalled = false;
+                LOGGER.info("Loaded Fractured Hearts configuration and world heart data");
             } catch (IOException | JsonParseException | IllegalArgumentException exception) {
-                LOGGER.error("Could not load Fractured Hearts configuration; keeping existing scoreboard settings", exception);
+                hearts = null;
+                LOGGER.error("Could not load or migrate Fractured Hearts data; legacy scoreboards were retained", exception);
             }
         });
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> syncOnlinePlayers(server));
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> join(handler.player));
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+            if (hearts != null && !uninstalled) {
+                apply(newPlayer);
+                HeartStore.PlayerData data = hearts.get(newPlayer);
+                if (data != null && data.pendingLossNotice) {
+                    data.pendingLossNotice = false;
+                    feedback(newPlayer, data, false);
+                    saveHearts();
+                }
+            }
+        });
+        ServerLivingEntityEvents.AFTER_DEATH.register((entity, damageSource) -> {
+            if (entity instanceof ServerPlayer player) died(player, damageSource);
+        });
     }
 
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> integerSetting(
             String name, ObjIntConsumer<Config> setter) {
-        return Commands.literal(name).then(Commands.argument("points", IntegerArgumentType.integer(1))
+        return Commands.literal(name).requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                .then(Commands.argument("points", IntegerArgumentType.integer(1))
                 .executes(context -> change(context.getSource(),
                         config -> setter.accept(config, IntegerArgumentType.getInteger(context, "points")), name)));
     }
@@ -87,8 +138,8 @@ public final class FracturedHearts implements ModInitializer {
     private static int reload(CommandSourceStack source) {
         try {
             Config loaded = loadConfig(source.getServer());
-            applyConfig(source.getServer(), loaded);
             currentConfig = loaded;
+            syncOnlinePlayers(source.getServer());
             source.sendSuccess(() -> Component.literal("Fractured Hearts config reloaded."), true);
             return 1;
         } catch (IOException | JsonParseException | IllegalArgumentException exception) {
@@ -103,8 +154,8 @@ public final class FracturedHearts implements ModInitializer {
         try {
             updated.validate();
             saveConfig(updated);
-            applyConfig(source.getServer(), updated);
             currentConfig = updated;
+            syncOnlinePlayers(source.getServer());
             source.sendSuccess(() -> Component.literal("Fractured Hearts " + setting + " saved to config."), true);
             return 1;
         } catch (IOException | IllegalArgumentException exception) {
@@ -113,82 +164,224 @@ public final class FracturedHearts implements ModInitializer {
         }
     }
 
-    private static int markPermadeath(CommandSourceStack source) {
-        ServerPlayer player = source.getPlayer();
-        if (player == null) return 0;
-        var scoreboard = source.getServer().getScoreboard();
-        Objective objective = scoreboard.getObjective("fractured_hearts.original_gamemode");
-        if (objective != null && scoreboard.getPlayerScoreInfo(player, objective) == null) {
-            scoreboard.getOrCreatePlayerScore(player, objective).set(player.gameMode().getId());
+    private static void join(ServerPlayer player) {
+        if (hearts == null || uninstalled) return;
+        try {
+            HeartStore.PlayerData data = hearts.getOrCreate(player,
+                    (int) Math.round(player.getAttributeValue(Attributes.MAX_HEALTH)));
+            // Tags left by older datapack builds are no longer used by the mod.
+            for (String tag : java.util.List.copyOf(player.entityTags())) {
+                if (tag.equals("fractured_hearts.sounds_off")) data.soundsOff = true;
+                if (tag.equals("fractured_hearts.messages_off")) data.messagesOff = true;
+                if (tag.equals("fractured_hearts.particles_off")) data.particlesOff = true;
+                if (tag.startsWith("fractured_hearts.")) player.removeTag(tag);
+            }
+            hearts.save();
+            runPlayerCommand(player, "advancement revoke @s only fractured_hearts:health_gain");
+            apply(player);
+        } catch (IOException exception) {
+            LOGGER.error("Could not load heart data for {}", player.getName().getString(), exception);
         }
+    }
+
+    private static void died(ServerPlayer victim, net.minecraft.world.damagesource.DamageSource damageSource) {
+        if (hearts == null || uninstalled) return;
+        try {
+            HeartStore.PlayerData data = hearts.getOrCreate(victim, currentConfig.maxHealth);
+            if (data.excluded || data.permadead) return;
+            int next = data.points - currentConfig.healthLostPerDeath;
+            if (currentConfig.pvpHeartSteal && damageSource.getEntity() instanceof ServerPlayer killer && killer != victim) {
+                HeartStore.PlayerData killerData = hearts.getOrCreate(killer, currentConfig.maxHealth);
+                if (!killerData.excluded && !killerData.permadead)
+                    killerData.points = Math.min(currentConfig.maxHealth,
+                            killerData.points + currentConfig.healthLostPerDeath);
+                apply(killer);
+                if (!killerData.messagesOff)
+                    killer.sendSystemMessage(Component.literal("You stole hearts from " + victim.getName().getString() + "."));
+            }
+            if (next < currentConfig.minimumHealth) {
+                if (currentConfig.permadeath) {
+                    data.previousGameMode = victim.gameMode().getId();
+                    data.permadead = true;
+                }
+            } else {
+                data.points = next;
+            }
+            data.pendingLossNotice = true;
+            hearts.save();
+        } catch (IOException exception) {
+            LOGGER.error("Could not save heart loss for {}", victim.getName().getString(), exception);
+        }
+    }
+
+    private static void apply(ServerPlayer player) {
+        if (hearts == null || uninstalled) return;
+        HeartStore.PlayerData data = hearts.get(player);
+        if (data == null) return;
+        AttributeInstance attribute = player.getAttribute(Attributes.MAX_HEALTH);
+        if (attribute == null) return;
+        if (data.legacyBase != null) {
+            double base = attribute.getBaseValue();
+            if (data.legacyScore != null && Math.abs(base - data.legacyScore) < 0.001) {
+                attribute.setBaseValue(data.legacyBase);
+                data.legacyBase = null;
+                data.legacyScore = null;
+                saveHearts();
+            } else if (Math.abs(base - data.legacyBase) < 0.001) {
+                data.legacyBase = null;
+                data.legacyScore = null;
+                saveHearts();
+            } else {
+                LOGGER.warn("Cannot safely restore legacy max-health base for {}", player.getName().getString());
+            }
+        }
+        if (data.excluded) {
+            attribute.removeModifier(HEALTH_MODIFIER_ID);
+        } else {
+            if (data.points > currentConfig.maxHealth) {
+                data.points = currentConfig.maxHealth;
+                saveHearts();
+            }
+            double amount = data.points - attribute.getBaseValue();
+            AttributeModifier existing = attribute.getModifier(HEALTH_MODIFIER_ID);
+            if (Math.abs(amount) < 0.001) {
+                if (existing != null) attribute.removeModifier(HEALTH_MODIFIER_ID);
+            } else if (existing == null || Math.abs(existing.amount() - amount) >= 0.001) {
+                attribute.addOrUpdateTransientModifier(new AttributeModifier(
+                        HEALTH_MODIFIER_ID, amount, AttributeModifier.Operation.ADD_VALUE));
+            }
+        }
+        if (data.permadead && player.gameMode() != GameType.SPECTATOR) player.setGameMode(GameType.SPECTATOR);
+    }
+
+    private static void saveHearts() {
+        try {
+            hearts.save();
+        } catch (IOException exception) {
+            LOGGER.error("Could not save Fractured Hearts world data", exception);
+        }
+    }
+
+    private static void runPlayerCommand(ServerPlayer player, String command) {
+        player.level().getServer().getCommands().performPrefixedCommand(
+                player.createCommandSourceStack().withPermission(LevelBasedPermissionSet.GAMEMASTER), command);
+    }
+
+    private static int status(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null || hearts == null) return 0;
+        HeartStore.PlayerData data = hearts.get(player);
+        if (data == null) return 0;
+        source.sendSuccess(() -> Component.literal("Fractured Hearts: " + (data.excluded ? "excluded" :
+                data.points + " health points (" + (data.points / 2.0) + " hearts)")), false);
         return 1;
+    }
+
+    private static int toggle(CommandSourceStack source, String option) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null || hearts == null) return 0;
+        HeartStore.PlayerData data = hearts.get(player);
+        if (data == null) return 0;
+        boolean enabled;
+        switch (option) {
+            case "sounds" -> enabled = !(data.soundsOff = !data.soundsOff);
+            case "messages" -> enabled = !(data.messagesOff = !data.messagesOff);
+            case "particles" -> enabled = !(data.particlesOff = !data.particlesOff);
+            default -> { return 0; }
+        }
+        saveHearts();
+        source.sendSuccess(() -> Component.literal(option + " " + (enabled ? "on" : "off")), false);
+        return 1;
+    }
+
+    private static int consumeApple(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayer();
+        if (player == null || hearts == null || uninstalled) return 0;
+        HeartStore.PlayerData data = hearts.get(player);
+        if (data == null || data.excluded || data.permadead) return 0;
+        if (data.points + currentConfig.healthPerApple > currentConfig.maxHealth) {
+            player.sendSystemMessage(Component.literal("You are already too close to the maximum health to gain hearts."));
+            return 0;
+        }
+        data.points += currentConfig.healthPerApple;
+        apply(player);
+        feedback(player, data, true);
+        saveHearts();
+        return 1;
+    }
+
+    private static void feedback(ServerPlayer player, HeartStore.PlayerData data, boolean gained) {
+        if (!data.messagesOff) {
+            String message = data.permadead ? "GAME OVER: you have perished." :
+                    (gained ? "Recovered hearts. " : "Lost hearts. ")
+                            + "Maximum health: " + (data.points / 2.0) + " hearts.";
+            player.sendSystemMessage(Component.literal(message));
+        }
+        if (!data.soundsOff) {
+            player.playSound(gained ? SoundEvents.CHORUS_FLOWER_GROW : SoundEvents.GLASS_BREAK, 1.0F, 1.0F);
+        }
+        if (!data.particlesOff) {
+            player.level().sendParticles(player, gained ? ParticleTypes.HAPPY_VILLAGER : ParticleTypes.DAMAGE_INDICATOR,
+                    false, false, player.getX(), player.getY() + 1, player.getZ(), 15,
+                    0.5, 0.5, 0.5, 0.0);
+        }
+    }
+
+    private static int setHearts(CommandSourceStack source, ServerPlayer player, int points) {
+        if (hearts == null || points < currentConfig.minimumHealth || points > currentConfig.maxHealth) {
+            source.sendFailure(Component.literal("Health points must be between the configured floor and ceiling."));
+            return 0;
+        }
+        try {
+            HeartStore.PlayerData data = hearts.getOrCreate(player, currentConfig.maxHealth);
+            data.points = points;
+            data.excluded = false;
+            apply(player);
+            hearts.save();
+            source.sendSuccess(() -> Component.literal("Set " + player.getName().getString() + " to " + points + " health points."), true);
+            return 1;
+        } catch (IOException exception) {
+            source.sendFailure(Component.literal("Could not save heart data: " + exception.getMessage()));
+            return 0;
+        }
     }
 
     private static int uninstall(CommandSourceStack source) {
         MinecraftServer server = source.getServer();
-        var scoreboard = server.getScoreboard();
-        Objective health = scoreboard.getObjective("fractured_hearts.score");
-        Objective originals = scoreboard.getObjective("fractured_hearts.original_health");
-        Objective gameModes = scoreboard.getObjective("fractured_hearts.original_gamemode");
-        if (health == null || originals == null) {
-            source.sendFailure(Component.literal("No complete Fractured Hearts baseline exists. Nothing was changed."));
+        if (hearts == null || uninstalled) {
+            source.sendFailure(Component.literal("Fractured Hearts world data is not active."));
             return 0;
         }
-
-        java.util.List<ServerPlayer> tracked = new java.util.ArrayList<>();
-        for (var entry : scoreboard.listPlayerScores(health)) {
-            String name = entry.owner();
-            ServerPlayer player = server.getPlayerList().getPlayerByName(name);
-            if (player == null) {
-                source.sendFailure(Component.literal("Uninstall stopped: " + name + " is offline. Have every tracked player join before uninstalling."));
+        if (hearts.hasPendingLegacyPlayers() || hearts.hasOfflineCleanup(server)) {
+            source.sendFailure(Component.literal("Uninstall stopped: a legacy max-health base or permadeath game mode still needs an offline player to join."));
+            return 0;
+        }
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            HeartStore.PlayerData data = hearts.get(player);
+            if (data != null && data.legacyBase != null) {
+                source.sendFailure(Component.literal("Uninstall stopped: unresolved legacy max-health base for "
+                        + player.getName().getString()));
                 return 0;
             }
-            ReadOnlyScoreInfo baseline = scoreboard.getPlayerScoreInfo(player, originals);
-            if (baseline == null) {
-                source.sendFailure(Component.literal("Uninstall stopped: no original health was recorded for " + name + ". Nothing was changed."));
-                return 0;
+        }
+        try {
+            hearts.delete();
+        } catch (IOException exception) {
+            source.sendFailure(Component.literal("Could not remove world heart data: " + exception.getMessage()));
+            return 0;
+        }
+        uninstalled = true;
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            AttributeInstance attribute = player.getAttribute(Attributes.MAX_HEALTH);
+            if (attribute != null) attribute.removeModifier(HEALTH_MODIFIER_ID);
+            HeartStore.PlayerData data = hearts.get(player);
+            if (data != null && data.previousGameMode != null && player.gameMode() == GameType.SPECTATOR) {
+                player.setGameMode(GameType.byId(data.previousGameMode));
             }
-            if (Math.abs(player.getAttributeBaseValue(Attributes.MAX_HEALTH) - entry.value()) > 0.001) {
-                source.sendFailure(Component.literal("Uninstall stopped: another change to " + name + "'s max health was detected. Nothing was changed."));
-                return 0;
-            }
-            tracked.add(player);
+            runPlayerCommand(player, "advancement revoke @s only fractured_hearts:health_gain");
         }
-
-        runCommand(server, "schedule clear fractured_hearts:internals/loop");
-        runCommand(server, "schedule clear fractured_hearts:pvp/cleanup_killer_tags");
-        for (String advancement : java.util.List.of("health_gain", "health_loss", "initialization", "pvp_kill")) {
-            runCommand(server, "advancement revoke @a only fractured_hearts:" + advancement);
-        }
-        for (String key : java.util.List.of("gain", "loss", "temp")) {
-            runCommand(server, "data remove storage fractured_hearts:data " + key);
-        }
-        for (ServerPlayer player : tracked) {
-            int baseline = scoreboard.getPlayerScoreInfo(player, originals).value();
-            player.getAttribute(Attributes.MAX_HEALTH).setBaseValue(baseline / 1000.0);
-            if (gameModes != null) {
-                ReadOnlyScoreInfo oldMode = scoreboard.getPlayerScoreInfo(player, gameModes);
-                if (oldMode != null && player.gameMode() == GameType.SPECTATOR) {
-                    player.setGameMode(GameType.byId(oldMode.value()));
-                }
-            }
-            for (String tag : java.util.List.copyOf(player.entityTags())) {
-                if (tag.startsWith("fractured_hearts.")) player.removeTag(tag);
-            }
-        }
-        for (String objective : java.util.List.of(
-                "fractured_hearts.score", "fractured_hearts.hearts", "fractured_hearts.death",
-                "fractured_hearts.toggle", "fractured_hearts.ceiling", "fractured_hearts.floor",
-                "fractured_hearts.gain_inc", "fractured_hearts.loss_inc", "fractured_hearts.permadeath",
-                "fractured_hearts.heart_steal", "fractured_hearts.original_health",
-                "fractured_hearts.original_gamemode", "fractured_hearts_toggle_sounds",
-                "fractured_hearts_toggle_messages", "fractured_hearts_toggle_particles",
-                "fractured_hearts_status")) {
-            Objective existing = scoreboard.getObjective(objective);
-            if (existing != null) scoreboard.removeObjective(existing);
-        }
-        source.sendSuccess(() -> Component.literal("Fractured Hearts cleaned up for " + tracked.size()
-                + " players. Stop the server and remove the JAR before starting it again."), true);
+        source.sendSuccess(() -> Component.literal(
+                "Fractured Hearts world data removed. Stop the server and remove the JAR."), true);
         return 1;
     }
 
@@ -251,23 +444,8 @@ public final class FracturedHearts implements ModInitializer {
         }
     }
 
-    private static void applyConfig(MinecraftServer server, Config config) {
-        setScore(server, "fractured_hearts.ceiling", config.maxHealth);
-        setScore(server, "fractured_hearts.floor", config.minimumHealth);
-        setScore(server, "fractured_hearts.gain_inc", config.healthPerApple);
-        setScore(server, "fractured_hearts.loss_inc", config.healthLostPerDeath);
-        setScore(server, "fractured_hearts.permadeath", config.permadeath ? 1 : 0);
-        setScore(server, "fractured_hearts.heart_steal", config.pvpHeartSteal ? 1 : 0);
-        syncOnlinePlayers(server);
-    }
-
     private static void syncOnlinePlayers(MinecraftServer server) {
-        runCommand(server, "execute as @a if score @s fractured_hearts.score > $fractured_hearts.fakeplayer fractured_hearts.ceiling run scoreboard players operation @s fractured_hearts.score = $fractured_hearts.fakeplayer fractured_hearts.ceiling");
-        runCommand(server, "execute as @a if score @s fractured_hearts.score matches 1.. run function fractured_hearts:config/sync_health");
-    }
-
-    private static void setScore(MinecraftServer server, String objective, int value) {
-        runCommand(server, "scoreboard players set $fractured_hearts.fakeplayer " + objective + " " + value);
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) apply(player);
     }
 
     private static void runCommand(MinecraftServer server, String command) {

@@ -15,11 +15,17 @@ dependencies {
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
+sourceSets.main.resources {
+    exclude 'data/fractured_hearts/function/**'
+    exclude 'data/fractured_hearts/advancement/**'
+}
+
 processResources {
     inputs.property 'version', project.version
     filesMatching('fabric.mod.json') {
         expand version: project.version
     }
+    from('fabric_resources')
 }
 
 tasks.withType(JavaCompile).configureEach {

@@ -26,15 +26,17 @@ When enabled and another death would take a player below the minimum health:
 
 ## Install and Remove
 
-For an existing vanilla world, use the standalone datapack. For a server or modpack, install the Fabric mod JAR with Fabric Loader and Fabric API for Minecraft 26.3. If this world already has the original Fractured Hearts datapack, remove that datapack before starting with the mod; both use the same namespace and scoreboard objectives. Do not install the standalone datapack and Fabric mod in the same world.
+For an existing vanilla world, use the standalone datapack. For a server or modpack, install the Fabric mod JAR with Fabric Loader and Fabric API for Minecraft 26.3 **on the server only**. Players can join with vanilla clients; they do not need Fabric. If this world already has the original Fractured Hearts datapack, remove that datapack before starting with the mod so its functions do not keep running. Do not install the standalone datapack and Fabric mod in the same world.
 
-To remove the **Fabric mod** safely:
+To remove the **Fabric mod** from a new world, stop the server and remove the JAR. Heart totals live in a world data file, and the health modifier is transient: without the mod, normal maximum health returns. The world data file and server config can be deleted separately.
 
-1. Back up the world and have every player tracked by Fractured Hearts join the server.
+For a world migrated from the original datapack or an older fork build, or if permadeath put anyone in spectator mode, use the cleanup command:
+
+1. Back up the world. Legacy players with saved max-health changes must join once to migrate them; players in spectator mode from permadeath must be online for game-mode restoration.
 2. While the mod is still installed, run `/fracturedhearts uninstall` as an admin.
-3. If it succeeds, stop the server and remove the mod JAR before starting the server again. The server config file remains and can be deleted separately.
+3. If it succeeds, stop the server and remove the mod JAR before starting the server again.
 
-The uninstall command restores recorded original maximum health and game modes and clears Fractured Hearts data. It stops without changing anything if a tracked player is offline, their original health was never recorded, or another mod has changed their maximum health. Players first initialized by the original datapack may need manual cleanup. The old `/function fractured_hearts:options/uninstall` path calls this command in the Fabric mod.
+On first start, the mod copies legacy player scores into `world/data/fractured-hearts.json`, imports old scoreboard settings into its config if needed, then deletes its old scoreboard objectives. Legacy health bases are restored when each affected player joins. The original datapack did not record the earlier base, so migration assumes vanilla's 20 health points; customized bases that cannot be safely identified need manual cleanup. The uninstall command removes the world data file and active modifiers. It refuses to run while legacy health or spectator cleanup still needs an offline player.
 
 The standalone datapack cannot safely restore offline players' health on uninstall. See the [README](README.md#standalone-datapack) for its technical limits.
 
@@ -48,7 +50,7 @@ The standalone datapack cannot safely restore offline players' health on uninsta
 - Permadeath: Disabled
 - Heart Steal: Disabled
 
-The original datapack's maximum was 20 hearts (40 health points). On first start, the Fabric mod imports any existing Fractured Hearts scoreboard settings into a new JSON config. Settings absent from the scoreboard use the fork's defaults. If a JSON config already exists, the mod loads its values instead of replacing it.
+The original datapack's maximum was 20 hearts (40 health points). On first start, the Fabric mod imports any existing Fractured Hearts scoreboard settings into a new JSON config. Settings absent from the scoreboard use the fork's defaults. If a JSON config already exists, the mod loads its values instead of replacing it. The mod stores player heart totals by UUID in the world data file, rather than in scoreboards or player data.
 
 ### Fabric Mod Configuration
 
@@ -81,25 +83,17 @@ The standalone datapack cannot read a server JSON file. Its defaults can be set 
 
 ## In-Game Commands
 
-The original admin function commands are also available (OP required). In the Fabric mod, the setting commands update the JSON config:
+Fabric mod commands:
 
 | Command | Description |
 | --- | --- |
-| `/function fractured_hearts:admin/toggle_permadeath` | Enable/disable permadeath server-wide |
-| `/function fractured_hearts:admin/toggle_heart_steal` | Enable/disable PvP heart stealing server-wide |
-| `/function fractured_hearts:admin/help` | View all admin commands |
-| `/function fractured_hearts:admin/set_ceiling {value:40}` | Set maximum health points |
-| `/function fractured_hearts:admin/set_gain_increment {value:2}` | Set health points gained per apple |
-| `/function fractured_hearts:admin/set_loss_increment {value:2}` | Set health points lost per death |
+| `/fracturedhearts sethearts <player> <health points>` | Set an online player's maximum health (OP) |
+| `/fracturedhearts status` | Show your current hearts |
+| `/fracturedhearts toggle sounds` | Toggle sound effects |
+| `/fracturedhearts toggle messages` | Toggle heart messages |
+| `/fracturedhearts toggle particles` | Toggle particle effects |
 
-Player Commands (No OP Required)
-
-| Command | Description |
-| --- | --- |
-| `/trigger fractured_hearts_toggle_sounds` | Toggle sound effects on/off |
-| `/trigger fractured_hearts_toggle_messages` | Toggle chat broadcasts on/off |
-| `/trigger fractured_hearts_toggle_particles` | Toggle particle effects |
-| `/trigger fractured_hearts_status` | View current hearts & all settings |
+The original `/function` and `/trigger` commands remain available in the standalone datapack. The Fabric mod does not install those datapack functions or scoreboard triggers.
 
 ## Attribution
 
