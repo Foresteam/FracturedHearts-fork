@@ -66,7 +66,7 @@ public final class FracturedHearts implements ModInitializer {
         });
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             try {
-                Config config = loadConfig();
+                Config config = loadConfig(server);
                 applyConfig(server, config);
                 currentConfig = config;
                 LOGGER.info("Loaded configuration from {}", CONFIG_PATH);
@@ -86,7 +86,7 @@ public final class FracturedHearts implements ModInitializer {
 
     private static int reload(CommandSourceStack source) {
         try {
-            Config loaded = loadConfig();
+            Config loaded = loadConfig(source.getServer());
             applyConfig(source.getServer(), loaded);
             currentConfig = loaded;
             source.sendSuccess(() -> Component.literal("Fractured Hearts config reloaded."), true);
@@ -192,11 +192,17 @@ public final class FracturedHearts implements ModInitializer {
         return 1;
     }
 
-    private static Config loadConfig() throws IOException {
+    private static Config loadConfig(MinecraftServer server) throws IOException {
         if (Files.notExists(CONFIG_PATH)) {
-            Config defaults = new Config();
-            saveConfig(defaults);
-            return defaults;
+            Config config = configFromScoreboard(server);
+            try {
+                config.validate();
+            } catch (IllegalArgumentException exception) {
+                LOGGER.warn("Existing Fractured Hearts scoreboard settings are invalid; using fork defaults", exception);
+                config = new Config();
+            }
+            saveConfig(config);
+            return config;
         }
         try (Reader reader = Files.newBufferedReader(CONFIG_PATH, StandardCharsets.UTF_8)) {
             Config config = GSON.fromJson(reader, Config.class);
@@ -204,6 +210,32 @@ public final class FracturedHearts implements ModInitializer {
             config.validate();
             return config;
         }
+    }
+
+    private static Config configFromScoreboard(MinecraftServer server) {
+        Config config = new Config();
+        Integer ceiling = scoreboardSetting(server, "fractured_hearts.ceiling");
+        Integer floor = scoreboardSetting(server, "fractured_hearts.floor");
+        Integer gain = scoreboardSetting(server, "fractured_hearts.gain_inc");
+        Integer loss = scoreboardSetting(server, "fractured_hearts.loss_inc");
+        Integer permadeath = scoreboardSetting(server, "fractured_hearts.permadeath");
+        Integer heartSteal = scoreboardSetting(server, "fractured_hearts.heart_steal");
+        if (ceiling != null) config.maxHealth = ceiling;
+        if (floor != null) config.minimumHealth = floor;
+        if (gain != null) config.healthPerApple = gain;
+        if (loss != null) config.healthLostPerDeath = loss;
+        if (permadeath != null) config.permadeath = permadeath == 1;
+        if (heartSteal != null) config.pvpHeartSteal = heartSteal == 1;
+        return config;
+    }
+
+    private static Integer scoreboardSetting(MinecraftServer server, String objectiveName) {
+        Objective objective = server.getScoreboard().getObjective(objectiveName);
+        if (objective == null) return null;
+        for (var entry : server.getScoreboard().listPlayerScores(objective)) {
+            if (entry.owner().equals("$fractured_hearts.fakeplayer")) return entry.value();
+        }
+        return null;
     }
 
     private static void saveConfig(Config config) throws IOException {
