@@ -120,6 +120,7 @@ public final class FracturedHearts implements ModInitializer {
                     feedback(newPlayer, data, false);
                     saveHearts();
                 }
+                if (data != null && data.permadead) disconnectPermadead(newPlayer);
             }
         });
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, damageSource) -> {
@@ -179,6 +180,14 @@ public final class FracturedHearts implements ModInitializer {
             hearts.save();
             runPlayerCommand(player, "advancement revoke @s only fractured_hearts:health_gain");
             apply(player);
+            if (data.previousGameMode != null) {
+                if (player.gameMode() == GameType.SPECTATOR) {
+                    player.setGameMode(GameType.byId(data.previousGameMode));
+                }
+                data.previousGameMode = null;
+                hearts.save();
+            }
+            if (data.permadead) disconnectPermadead(player);
         } catch (IOException exception) {
             LOGGER.error("Could not load heart data for {}", player.getName().getString(), exception);
         }
@@ -201,7 +210,6 @@ public final class FracturedHearts implements ModInitializer {
             }
             if (next < currentConfig.minimumHealth) {
                 if (currentConfig.permadeath) {
-                    data.previousGameMode = victim.gameMode().getId();
                     data.permadead = true;
                 }
             } else {
@@ -251,7 +259,10 @@ public final class FracturedHearts implements ModInitializer {
                         HEALTH_MODIFIER_ID, amount, AttributeModifier.Operation.ADD_VALUE));
             }
         }
-        if (data.permadead && player.gameMode() != GameType.SPECTATOR) player.setGameMode(GameType.SPECTATOR);
+    }
+
+    private static void disconnectPermadead(ServerPlayer player) {
+        player.connection.disconnect(Component.literal("Fractured Hearts permadeath: you have perished."));
     }
 
     private static void saveHearts() {
@@ -374,6 +385,7 @@ public final class FracturedHearts implements ModInitializer {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             AttributeInstance attribute = player.getAttribute(Attributes.MAX_HEALTH);
             if (attribute != null) attribute.removeModifier(HEALTH_MODIFIER_ID);
+            player.setHealth(player.getMaxHealth());
             HeartStore.PlayerData data = hearts.get(player);
             if (data != null && data.previousGameMode != null && player.gameMode() == GameType.SPECTATOR) {
                 player.setGameMode(GameType.byId(data.previousGameMode));

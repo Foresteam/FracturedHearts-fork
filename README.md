@@ -44,9 +44,9 @@ The Fabric mod has `/fracturedhearts sethearts <player> <health points>`, `/frac
 
 ## Uninstall
 
-For worlds created with this Fabric mod, stop the server and remove the JAR. On restart, its transient modifier is absent and normal max health returns. The world data file and server config remain inert and can be deleted separately. `/fracturedhearts uninstall` removes the world heart data file, removes active modifiers, and restores game modes for online players affected by permadeath.
+For worlds that have only run this Fabric build, stop the server and remove the JAR. On restart, its transient modifier is absent and normal max health returns. Existing current health may remain below maximum until the player heals or dies; the next death and respawn restores normal full health. Permadeath is a mod-owned lockout, not a persistent spectator game mode. The world data file and server config remain inert and can be deleted separately. `/fracturedhearts uninstall` removes the world heart data file, removes active modifiers, and immediately restores online players to full health.
 
-Legacy players with saved max-health bases must join once for migration before removing the mod. Players put in spectator mode by permadeath must be online when `/fracturedhearts uninstall` runs; spectator mode is vanilla player data and survives JAR removal. The command refuses to run when either cleanup needs an offline player or a legacy base cannot be attributed safely. It makes no changes when preflight fails. Back up the world before migration or uninstall.
+Legacy players with saved max-health bases or spectator game modes must join once for migration before removing the mod. These are persistent vanilla player-data changes made by earlier datapack or fork builds; removing the new JAR cannot undo them while those players remain offline. The command refuses to run when cleanup needs an offline player or a legacy base cannot be attributed safely. It makes no changes when preflight fails. Back up the world before migration or uninstall.
 
 ## Standalone datapack
 

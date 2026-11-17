@@ -19,24 +19,21 @@ Fractured Hearts adds a permanent death penalty system to Minecraft — each tim
 
 ### ☠️ Permadeath Mode (Must be enabled first)
 
-When enabled and another death would take a player below the minimum health:
-
-- Player enters spectator mode
-- Cannot respawn
+When enabled and another death would take a player below the minimum health, the **Fabric mod** disconnects the player and blocks rejoining until the mod is removed. This lockout is stored in the mod's world data, so removing the JAR does not leave the player in spectator mode. The **standalone datapack** uses spectator mode instead.
 
 ## Install and Remove
 
 For an existing vanilla world, use the standalone datapack. For a server or modpack, install the Fabric mod JAR with Fabric Loader and Fabric API for Minecraft 26.3 **on the server only**. Players can join with vanilla clients; they do not need Fabric. If this world already has the original Fractured Hearts datapack, remove that datapack before starting with the mod so its functions do not keep running. Do not install the standalone datapack and Fabric mod in the same world.
 
-To remove the **Fabric mod** from a new world, stop the server and remove the JAR. Heart totals live in a world data file, and the health modifier is transient: without the mod, normal maximum health returns. The world data file and server config can be deleted separately.
+To remove the **Fabric mod** from a world that has only run this build, stop the server and remove the JAR. Heart totals and permadeath lockouts live in a world data file, and the health modifier is transient: without the mod, normal maximum health returns. Players recover normally on their next death and respawn. The world data file and server config can be deleted separately.
 
-For a world migrated from the original datapack or an older fork build, or if permadeath put anyone in spectator mode, use the cleanup command:
+For a world migrated from the original datapack or an older fork build, use the cleanup command:
 
-1. Back up the world. Legacy players with saved max-health changes must join once to migrate them; players in spectator mode from permadeath must be online for game-mode restoration.
+1. Back up the world. Legacy players with saved max-health changes or spectator game modes must join once to migrate them.
 2. While the mod is still installed, run `/fracturedhearts uninstall` as an admin.
 3. If it succeeds, stop the server and remove the mod JAR before starting the server again.
 
-On first start, the mod copies legacy player scores into `world/data/fractured-hearts.json`, imports old scoreboard settings into its config if needed, then deletes its old scoreboard objectives. Legacy health bases are restored when each affected player joins. The original datapack did not record the earlier base, so migration assumes vanilla's 20 health points; customized bases that cannot be safely identified need manual cleanup. The uninstall command removes the world data file and active modifiers. It refuses to run while legacy health or spectator cleanup still needs an offline player.
+On first start, the mod copies legacy player scores into `world/data/fractured-hearts.json`, imports old scoreboard settings into its config if needed, then deletes its old scoreboard objectives. Legacy health bases and spectator game modes are restored when each affected player joins. The original datapack did not record the earlier base, so migration assumes vanilla's 20 health points; customized bases that cannot be safely identified need manual cleanup. The uninstall command removes the world data file, removes active modifiers, and restores online players to full health. It refuses to run while legacy cleanup still needs an offline player.
 
 The standalone datapack cannot safely restore offline players' health on uninstall. See the [README](README.md#standalone-datapack) for its technical limits.
 
