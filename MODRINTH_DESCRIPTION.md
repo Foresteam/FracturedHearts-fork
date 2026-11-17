@@ -1,6 +1,6 @@
 # 💔 Fractured Hearts
 
-Based on the [original Modrinth datapack description](https://modrinth.com/datapack/fractured-hearts). This fork targets Minecraft 26.3 and adds file-based configuration to the Fabric mod. See the [README](README.md) for build and technical details.
+Based on the [original Modrinth datapack description](https://modrinth.com/datapack/fractured-hearts). This fork targets Minecraft 26.3. The standalone datapack is intended for existing vanilla worlds; the Fabric mod is intended for servers and modpacks and adds file-based configuration. See the [README](README.md) for build and technical details.
 
 Every death shatters your hearts. Recover them with rare apples, or face oblivion.
 
@@ -26,7 +26,7 @@ When enabled and another death would take a player below the minimum health:
 
 ## Install and Remove
 
-For the Fabric mod, install the JAR with Fabric Loader and Fabric API for Minecraft 26.3. If this world already has the original Fractured Hearts datapack, remove that datapack before starting with the mod; both use the same namespace and scoreboard objectives. The standalone datapack is a separate option for worlds without the Fabric mod. Do not install both in the same world.
+For an existing vanilla world, use the standalone datapack. For a server or modpack, install the Fabric mod JAR with Fabric Loader and Fabric API for Minecraft 26.3. If this world already has the original Fractured Hearts datapack, remove that datapack before starting with the mod; both use the same namespace and scoreboard objectives. Do not install the standalone datapack and Fabric mod in the same world.
 
 To remove the **Fabric mod** safely:
 
@@ -34,7 +34,7 @@ To remove the **Fabric mod** safely:
 2. While the mod is still installed, run `/fracturedhearts uninstall` as an admin.
 3. If it succeeds, stop the server and remove the mod JAR before starting the server again. The server config file remains and can be deleted separately.
 
-The uninstall command restores recorded original maximum health and game modes and clears Fractured Hearts data. It stops without changing anything if a tracked player is offline, their original health was never recorded, or another mod has changed their maximum health. Players first initialized by older versions may need manual cleanup. The old `/function fractured_hearts:options/uninstall` path calls this command in the Fabric mod.
+The uninstall command restores recorded original maximum health and game modes and clears Fractured Hearts data. It stops without changing anything if a tracked player is offline, their original health was never recorded, or another mod has changed their maximum health. Players first initialized by the original datapack may need manual cleanup. The old `/function fractured_hearts:options/uninstall` path calls this command in the Fabric mod.
 
 The standalone datapack cannot safely restore offline players' health on uninstall. See the [README](README.md#standalone-datapack) for its technical limits.
 
@@ -48,11 +48,11 @@ The standalone datapack cannot safely restore offline players' health on uninsta
 - Permadeath: Disabled
 - Heart Steal: Disabled
 
-The original datapack's maximum was 20 hearts (40 health points). Existing config files are not overwritten, so a server upgrading from an earlier fork version may still have that cap until it is changed manually.
+The original datapack's maximum was 20 hearts (40 health points). On first start, the Fabric mod imports any existing Fractured Hearts scoreboard settings into a new JSON config. Settings absent from the scoreboard use the fork's defaults. If a JSON config already exists, the mod loads its values instead of replacing it.
 
 ### Fabric Mod Configuration
 
-On first server start, the Fabric mod creates `config/fractured-hearts.json`:
+On first server start, the Fabric mod creates `config/fractured-hearts.json`. On a new world, it contains these defaults:
 
 ```json
 {

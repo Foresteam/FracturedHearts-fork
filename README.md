@@ -1,12 +1,12 @@
 # Fractured Hearts (fork) — 26.3
 
-This repository is a fork of [Renthy's original Fractured Hearts datapack](https://modrinth.com/datapack/fractured-hearts) for Minecraft 26.3, available as a Fabric mod and standalone datapack. For features, player commands, and settings, see [MODRINTH_DESCRIPTION.md](MODRINTH_DESCRIPTION.md).
+This repository is a fork of [Renthy's original Fractured Hearts datapack](https://modrinth.com/datapack/fractured-hearts) for Minecraft 26.3. The standalone datapack is intended for existing vanilla worlds; the Fabric mod is intended for servers and modpacks. For features, player commands, and settings, see [MODRINTH_DESCRIPTION.md](MODRINTH_DESCRIPTION.md).
 
 This fork is based on Renthy's Fractured Hearts 1.0 datapack JAR. The original file is `FracturedHearts_v1_0.jar`. Its mechanics are implemented in readable datapack functions, advancements, and a recipe; there is no compiled original Java code to decompile. Those data files are included with attribution and the original LGPL-3.0-only license. The Fabric initializer adds file-based server configuration.
 
 ## Configuration
 
-On the first server start, the mod writes `config/fractured-hearts.json`:
+On the first server start, the mod writes `config/fractured-hearts.json`. On a new world, it contains these defaults:
 
 ```json
 {
@@ -21,7 +21,7 @@ On the first server start, the mod writes `config/fractured-hearts.json`:
 
 Health values are **health points**, where 2 points equal 1 heart. Edit the file and run `/fracturedhearts reload` or restart the server. Existing player scores are preserved, except that scores above a newly lowered cap are clamped. Remove the old datapack from the world when installing this mod, since both use the same namespace and scoreboard objectives.
 
-The new default cap is 20 health points (10 hearts). An existing `config/fractured-hearts.json` is not overwritten; change its `maxHealth` yourself if it still says 40.
+The default cap is 20 health points (10 hearts). If the JSON config does not exist, the mod imports any existing Fractured Hearts scoreboard settings into the new file, using fork defaults for missing settings. On later starts, it loads the JSON config without replacing it and applies those values to the scoreboard. If you have a custom config with `maxHealth` set to 40, change it manually to use the fork's 20-point default.
 
 The original datapack uses a 40 health point cap; this fork uses 20 by default. Health values in the JSON file and admin commands are health points, with 2 points per heart.
 
@@ -44,7 +44,7 @@ The original `/function fractured_hearts:admin/set_ceiling`, `set_gain_increment
 
 Run `/fracturedhearts uninstall` while the mod is installed, then stop the server and remove its JAR before starting again. The command restores recorded original max health and game modes, clears the mod's scoreboard objectives and player tags, and cancels its scheduled functions. The old `/function fractured_hearts:options/uninstall` path calls this command.
 
-The command **refuses to run** if any tracked player is offline, has no recorded original health, or has a max-health value changed by something other than Fractured Hearts. This protects other mods' changes but means players first initialized by older versions must be handled manually. It makes no changes when a preflight check fails. Back up the world before using the command. The server config file remains outside the world and can be deleted separately.
+The command **refuses to run** if any tracked player is offline, has no recorded original health, or has a max-health value changed by something other than Fractured Hearts. This protects other mods' changes but means players first initialized by the original datapack may need manual cleanup. It makes no changes when a preflight check fails. Back up the world before using the command. The server config file remains outside the world and can be deleted separately.
 
 ## Standalone datapack
 
