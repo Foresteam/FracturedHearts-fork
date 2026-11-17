@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "fractured_hearts",
+  "version": "${version}",
+  "name": "Fractured Hearts (Fabric 26.3)",
+  "description": "Death costs maximum health; enchanted golden apples restore it.",
+  "authors": ["Renthy (original datapack)", "Fabric 26.3 port"],
+  "license": "LGPL-3.0-only",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["io.github.fracturedhearts.FracturedHearts"]
+  },
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

@@ -1,0 +1,1 @@
+fracturedhearts uninstall

@@ -1,0 +1,8 @@
+# Created by Renthy @ https://modrinth.com/user/Renthy
+scoreboard players operation @s fractured_hearts.score += $fractured_hearts.fakeplayer fractured_hearts.loss_inc
+execute if score @s fractured_hearts.score > $fractured_hearts.fakeplayer fractured_hearts.ceiling run scoreboard players operation @s fractured_hearts.score = $fractured_hearts.fakeplayer fractured_hearts.ceiling
+execute store result storage fractured_hearts:data gain int 1 run scoreboard players get @s fractured_hearts.score
+function fractured_hearts:health_gain/set_health with storage fractured_hearts:data
+execute unless entity @s[tag=fractured_hearts.messages_off] if score $fractured_hearts.fakeplayer fractured_hearts.loss_inc matches 1 run tellraw @s [{"text":"You stole ","color":"dark_red"},{"text":"a half-heart","color":"red"},{"text":" from your victim!","color":"dark_red"}]
+execute unless entity @s[tag=fractured_hearts.messages_off] if score $fractured_hearts.fakeplayer fractured_hearts.loss_inc matches 2 run tellraw @s [{"text":"You stole ","color":"dark_red"},{"text":"a heart","color":"red"},{"text":" from your victim!","color":"dark_red"}]
+execute unless entity @s[tag=fractured_hearts.messages_off] if score $fractured_hearts.fakeplayer fractured_hearts.loss_inc matches 3.. run tellraw @s [{"text":"You stole ","color":"dark_red"},{"score":{"name":"$fractured_hearts.fakeplayer","objective":"fractured_hearts.loss_inc"},"color":"red"},{"text":" hearts","color":"red"},{"text":" from your victim!","color":"dark_red"}]

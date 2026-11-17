@@ -1,0 +1,7 @@
+.gradle/
+.codex
+build/
+releases/
+run/
+*.class
+FracturedHearts_v1_0.jar

@@ -1,0 +1,8 @@
+# Created by Renthy @ https://modrinth.com/user/Renthy
+execute as @a if score @s fractured_hearts_toggle_sounds matches 1.. run function fractured_hearts:options/toggle_individual {tag:"fractured_hearts.sounds_off", setting:"fractured_hearts_toggle_sounds", confirm_on:"Sounds have been toggled ON!", confirm_off:"Sounds have been toggled OFF!"}
+execute as @a if score @s fractured_hearts_toggle_messages matches 1.. run function fractured_hearts:options/toggle_individual {tag:"fractured_hearts.messages_off", setting:"fractured_hearts_toggle_messages", confirm_on:"Messages have been toggled ON!", confirm_off:"Messages have been toggled OFF!"}
+execute as @a if score @s fractured_hearts_toggle_particles matches 1.. run function fractured_hearts:options/toggle_individual {tag:"fractured_hearts.particles_off", setting:"fractured_hearts_toggle_particles", confirm_on:"Particles have been toggled ON!", confirm_off:"Particles have been toggled OFF!"}
+execute as @a if score @s fractured_hearts_status matches 1.. run function fractured_hearts:internals/status
+execute as @a unless score @s fractured_hearts.score matches -2147483648..2147483647 run function fractured_hearts:internals/initialization_set
+execute as @a run function fractured_hearts:internals/enable_triggers
+execute if score $fractured_hearts.fakeplayer fractured_hearts.ceiling matches 0.. run schedule function fractured_hearts:internals/loop 20t replace
