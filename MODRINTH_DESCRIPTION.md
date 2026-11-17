@@ -19,10 +19,24 @@ Fractured Hearts adds a permanent death penalty system to Minecraft — each tim
 
 ### ☠️ Permadeath Mode (Must be enabled first)
 
-When enabled and a player reaches 0 hearts:
+When enabled and another death would take a player below the minimum health:
 
 - Player enters spectator mode
 - Cannot respawn
+
+## Install and Remove
+
+For the Fabric mod, install the JAR with Fabric Loader and Fabric API for Minecraft 26.3. If this world already has the original Fractured Hearts datapack, remove that datapack before starting with the mod; both use the same namespace and scoreboard objectives. The standalone datapack is a separate option for worlds without the Fabric mod. Do not install both in the same world.
+
+To remove the **Fabric mod** safely:
+
+1. Back up the world and have every player tracked by Fractured Hearts join the server.
+2. While the mod is still installed, run `/fracturedhearts uninstall` as an admin.
+3. If it succeeds, stop the server and remove the mod JAR before starting the server again. The server config file remains and can be deleted separately.
+
+The uninstall command restores recorded original maximum health and game modes and clears Fractured Hearts data. It stops without changing anything if a tracked player is offline, their original health was never recorded, or another mod has changed their maximum health. Players first initialized by older versions may need manual cleanup. The old `/function fractured_hearts:options/uninstall` path calls this command in the Fabric mod.
+
+The standalone datapack cannot safely restore offline players' health on uninstall. See the [README](README.md#standalone-datapack) for its technical limits.
 
 ## Default Settings for This Fork
 
@@ -65,18 +79,18 @@ These numbers are **health points**: 2 health points equal 1 heart. Edit the fil
 
 The standalone datapack cannot read a server JSON file. Its defaults can be set when the pack is built; see the [README](README.md#standalone-datapack).
 
-## Customization & Settings
+## In-Game Commands
 
-Admin Commands (OP Required)
+The original admin function commands are also available (OP required). In the Fabric mod, the setting commands update the JSON config:
 
 | Command | Description |
 | --- | --- |
 | `/function fractured_hearts:admin/toggle_permadeath` | Enable/disable permadeath server-wide |
 | `/function fractured_hearts:admin/toggle_heart_steal` | Enable/disable PvP heart stealing server-wide |
 | `/function fractured_hearts:admin/help` | View all admin commands |
-| `/function fractured_hearts:admin/set_ceiling {value:40}` | Set max hearts |
-| `/function fractured_hearts:admin/set_gain_increment {value:2}` | Hearts per apple |
-| `/function fractured_hearts:admin/set_loss_increment {value:2}` | Hearts per death |
+| `/function fractured_hearts:admin/set_ceiling {value:40}` | Set maximum health points |
+| `/function fractured_hearts:admin/set_gain_increment {value:2}` | Set health points gained per apple |
+| `/function fractured_hearts:admin/set_loss_increment {value:2}` | Set health points lost per death |
 
 Player Commands (No OP Required)
 
@@ -87,14 +101,6 @@ Player Commands (No OP Required)
 | `/trigger fractured_hearts_toggle_particles` | Toggle particle effects |
 | `/trigger fractured_hearts_status` | View current hearts & all settings |
 
-## Other
+## Attribution
 
-Can I use this in my modpack?
-
-- Of course!
-
-Isnt this like the other datapacks/mods Life Steal, Limited Lives, etc etc..
-
-- Yes and no. The concept is similar but I plan to expand on the feature set.
-
-Source: [Modrinth description](https://modrinth.com/datapack/fractured-hearts)
+This is an independent fork of [Renthy's original Fractured Hearts datapack](https://modrinth.com/datapack/fractured-hearts), licensed under GNU Lesser General Public License v3.0 only. See [LICENSE](LICENSE) for the license text.
