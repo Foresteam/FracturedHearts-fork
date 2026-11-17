@@ -100,6 +100,11 @@ public final class FracturedHearts implements ModInitializer {
                 Config config = loadConfig(server);
                 hearts = HeartStore.load(server);
                 hearts.importAndDropScoreboards(server);
+                try {
+                    hearts.migrateOfflinePlayerData(server);
+                } catch (IOException exception) {
+                    LOGGER.warn("Could not finish offline player migration; unresolved players remain pending", exception);
+                }
                 runCommand(server, "schedule clear fractured_hearts:internals/loop");
                 runCommand(server, "schedule clear fractured_hearts:pvp/cleanup_killer_tags");
                 currentConfig = config;
@@ -363,8 +368,14 @@ public final class FracturedHearts implements ModInitializer {
             source.sendFailure(Component.literal("Fractured Hearts world data is not active."));
             return 0;
         }
+        try {
+            hearts.migrateOfflinePlayerData(server);
+        } catch (IOException exception) {
+            source.sendFailure(Component.literal("Could not finish offline migration: " + exception.getMessage()));
+            return 0;
+        }
         if (hearts.hasPendingLegacyPlayers() || hearts.hasOfflineCleanup(server)) {
-            source.sendFailure(Component.literal("Uninstall stopped: a legacy max-health base or permadeath game mode still needs an offline player to join."));
+            source.sendFailure(Component.literal("Uninstall stopped: some legacy saved health or game modes remain unresolved. Affected players must join or be repaired manually."));
             return 0;
         }
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {

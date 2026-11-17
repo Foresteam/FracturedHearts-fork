@@ -2,8 +2,13 @@ package io.github.fracturedhearts;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.ReadOnlyScoreInfo;
@@ -137,6 +142,101 @@ final class HeartStore {
             Objective objective = scoreboard.getObjective(name);
             if (objective != null) scoreboard.removeObjective(objective);
         }
+    }
+
+    /** Fix saved vanilla values left by older builds without waiting for each player to log in. */
+    void migrateOfflinePlayerData(MinecraftServer server) throws IOException {
+        Path playerDirectory = server.getWorldPath(LevelResource.PLAYER_DATA_DIR);
+        for (var entry : Map.copyOf(pendingNames).entrySet()) {
+            String name = entry.getKey();
+            PlayerData data = entry.getValue();
+            if (server.getPlayerList().getPlayerByName(name) != null) continue;
+            var profile = server.services().nameToIdCache().get(name);
+            if (profile.isEmpty()) continue;
+            String uuid = profile.get().id().toString();
+            if (patchOfflinePlayerData(playerDirectory, uuid, data)) {
+                players.putIfAbsent(uuid, data);
+                pendingNames.remove(name);
+            }
+            save();
+        }
+        for (var entry : players.entrySet()) {
+            PlayerData data = entry.getValue();
+            if (data.legacyBase == null && data.previousGameMode == null) continue;
+            boolean online = server.getPlayerList().getPlayers().stream()
+                    .anyMatch(player -> player.getUUID().toString().equals(entry.getKey()));
+            if (!online) {
+                patchOfflinePlayerData(playerDirectory, entry.getKey(), data);
+                save();
+            }
+        }
+    }
+
+    private boolean patchOfflinePlayerData(Path playerDirectory, String uuid, PlayerData data) throws IOException {
+        Path playerFile = playerDirectory.resolve(uuid + ".dat");
+        if (!Files.exists(playerFile)) return false;
+        CompoundTag tag;
+        try {
+            tag = NbtIo.readCompressed(playerFile, NbtAccounter.unlimitedHeap());
+        } catch (IOException exception) {
+            // Keep the pending record. A corrupt or incompatible file is never overwritten.
+            return false;
+        }
+        boolean changed = false;
+        boolean healthResolved = data.legacyBase == null;
+        if (!healthResolved) {
+            var attributes = tag.getList("attributes");
+            boolean foundMaxHealth = false;
+            if (attributes.isPresent()) {
+                ListTag list = attributes.get();
+                for (int index = 0; index < list.size(); index++) {
+                    var attribute = list.getCompound(index);
+                    if (attribute.isEmpty() || !attribute.get().getString("id")
+                            .orElse("").equals("minecraft:max_health")) continue;
+                    foundMaxHealth = true;
+                    var savedBase = attribute.get().getDouble("base");
+                    if (savedBase.isPresent() && data.legacyScore != null
+                            && Math.abs(savedBase.get() - data.legacyScore) < 0.001) {
+                        attribute.get().putDouble("base", data.legacyBase);
+                        changed = true;
+                        healthResolved = true;
+                    } else if (savedBase.isPresent()
+                            && Math.abs(savedBase.get() - data.legacyBase) < 0.001) {
+                        healthResolved = true;
+                    }
+                    break;
+                }
+            }
+            if (!foundMaxHealth && Math.abs(data.legacyBase - 20.0) < 0.001)
+                healthResolved = true;
+        }
+        boolean modeResolved = data.previousGameMode == null;
+        if (!modeResolved) {
+            var currentMode = tag.getInt("playerGameType");
+            if (currentMode.isPresent() && currentMode.get() == GameType.SPECTATOR.getId()) {
+                tag.putInt("playerGameType", data.previousGameMode);
+                tag.putInt("previousPlayerGameType", data.previousGameMode);
+                changed = true;
+                modeResolved = true;
+            } else if (currentMode.isPresent()) {
+                modeResolved = true;
+            }
+        }
+        if (changed) {
+            Path temporary = playerFile.resolveSibling(playerFile.getFileName() + ".fractured-hearts.tmp");
+            NbtIo.writeCompressed(tag, temporary);
+            try {
+                Files.move(temporary, playerFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+                Files.move(temporary, playerFile, StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
+        if (healthResolved) {
+            data.legacyBase = null;
+            data.legacyScore = null;
+        }
+        if (modeResolved) data.previousGameMode = null;
+        return healthResolved && modeResolved;
     }
 
     void save() throws IOException {

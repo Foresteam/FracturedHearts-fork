@@ -29,11 +29,11 @@ To remove the **Fabric mod** from a world that has only run this build, stop the
 
 For a world migrated from the original datapack or an older fork build, use the cleanup command:
 
-1. Back up the world. Legacy players with saved max-health changes or spectator game modes must join once to migrate them.
+1. Back up the world. Offline legacy player files are migrated automatically when their cached names and saved values can be verified. Any unresolved players must join once for migration.
 2. While the mod is still installed, run `/fracturedhearts uninstall` as an admin.
 3. If it succeeds, stop the server and remove the mod JAR before starting the server again.
 
-On first start, the mod copies legacy player scores into `world/data/fractured-hearts.json`, imports old scoreboard settings into its config if needed, then deletes its old scoreboard objectives. Legacy health bases and spectator game modes are restored when each affected player joins. The original datapack did not record the earlier base, so migration assumes vanilla's 20 health points; customized bases that cannot be safely identified need manual cleanup. The uninstall command removes the world data file, removes active modifiers, and restores online players to full health. It refuses to run while legacy cleanup still needs an offline player.
+On first start, the mod copies legacy player scores into `world/data/fractured-hearts.json`, imports old scoreboard settings into its config if needed, then deletes its old scoreboard objectives. It restores saved health bases and spectator game modes in offline player files when the cached name and saved values can be verified, and retries unresolved players on join. The original datapack did not record the earlier base, so migration assumes vanilla's 20 health points; customized bases that cannot be safely identified need manual cleanup. The uninstall command removes the world data file, removes active modifiers, and restores online players to full health. It refuses to run while legacy cleanup remains unresolved.
 
 The standalone datapack cannot safely restore offline players' health on uninstall. See the [README](README.md#standalone-datapack) for its technical limits.
 
