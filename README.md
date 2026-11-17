@@ -54,7 +54,7 @@ Run `python3 scripts/pack_datapack.py` to create `releases/fractured-hearts-data
 
 ## License and attribution
 
-LGPL-3.0-only; see [LICENSE](LICENSE). The copied datapack functions are by [Renthy](https://modrinth.com/datapack/fractured-hearts), whose attribution comments are retained. This is an independent fork; it is not an official release by the original author.
+LGPL-3.0-only; see [LICENSE](LICENSE). The copied datapack functions are by [Renthy](https://modrinth.com/datapack/fractured-hearts), whose attribution comments are retained. Foresteam maintains this independent fork; it is not an official release by the original author.
 
 ## Build
 

@@ -4,7 +4,7 @@
   "version": "${version}",
   "name": "Fractured Hearts (Fabric 26.3)",
   "description": "Death costs maximum health; enchanted golden apples restore it.",
-  "authors": ["Renthy (original datapack)", "Fabric 26.3 port"],
+  "authors": ["Foresteam (fork)", "Renthy (original datapack)"],
   "license": "LGPL-3.0-only",
   "environment": "server",
   "entrypoints": {
