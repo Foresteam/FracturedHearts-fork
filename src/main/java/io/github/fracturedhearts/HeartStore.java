@@ -2,17 +2,10 @@ package io.github.fracturedhearts;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.scores.Objective;
-import net.minecraft.world.scores.ReadOnlyScoreInfo;
-import net.minecraft.world.scores.ScoreHolder;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -46,7 +39,6 @@ final class HeartStore {
         boolean particlesOff;
         boolean permadead;
         boolean pendingLossNotice;
-        Integer previousGameMode;
         Double legacyBase;
         Integer legacyScore;
 
@@ -97,12 +89,12 @@ final class HeartStore {
     }
 
     boolean hasPendingLegacyPlayers() {
-        return pendingNames.values().stream().anyMatch(data -> data.legacyBase != null || data.previousGameMode != null);
+        return pendingNames.values().stream().anyMatch(data -> data.legacyBase != null);
     }
 
     boolean hasOfflineCleanup(MinecraftServer server) {
         for (var entry : players.entrySet()) {
-            if (entry.getValue().previousGameMode == null && entry.getValue().legacyBase == null) continue;
+            if (entry.getValue().legacyBase == null) continue;
             boolean online = server.getPlayerList().getPlayers().stream()
                     .anyMatch(player -> player.getUUID().toString().equals(entry.getKey()));
             if (!online) return true;
@@ -113,8 +105,6 @@ final class HeartStore {
     void importAndDropScoreboards(MinecraftServer server) throws IOException {
         var scoreboard = server.getScoreboard();
         Objective health = scoreboard.getObjective("fractured_hearts.score");
-        Objective originals = scoreboard.getObjective("fractured_hearts.original_health");
-        Objective gameModes = scoreboard.getObjective("fractured_hearts.original_gamemode");
         if (health != null) {
             for (var entry : scoreboard.listPlayerScores(health)) {
                 String name = entry.owner();
@@ -124,16 +114,9 @@ final class HeartStore {
                 data.points = entry.value();
                 data.excluded = entry.value() == 0;
                 data.legacyScore = entry.value();
-                ScoreHolder holder = ScoreHolder.forNameOnly(name);
-                ReadOnlyScoreInfo baseline = originals == null ? null : scoreboard.getPlayerScoreInfo(holder, originals);
-                // The original vanilla datapack did not record a baseline. Its target
-                // worlds have vanilla's 20-point base; preserve recorded fork baselines.
-                data.legacyBase = baseline == null ? 20.0 : baseline.value() / 1000.0;
-                ReadOnlyScoreInfo mode = gameModes == null ? null : scoreboard.getPlayerScoreInfo(holder, gameModes);
-                if (mode != null) {
-                    data.previousGameMode = mode.value();
-                    data.permadead = true;
-                }
+                // The original datapack wrote the score into the vanilla base.
+                // Its expected base before installation was 20 health points.
+                data.legacyBase = 20.0;
             }
             // Commit the migration before deleting the only copy of the old scores.
             save();
@@ -142,101 +125,6 @@ final class HeartStore {
             Objective objective = scoreboard.getObjective(name);
             if (objective != null) scoreboard.removeObjective(objective);
         }
-    }
-
-    /** Fix saved vanilla values left by older builds without waiting for each player to log in. */
-    void migrateOfflinePlayerData(MinecraftServer server) throws IOException {
-        Path playerDirectory = server.getWorldPath(LevelResource.PLAYER_DATA_DIR);
-        for (var entry : Map.copyOf(pendingNames).entrySet()) {
-            String name = entry.getKey();
-            PlayerData data = entry.getValue();
-            if (server.getPlayerList().getPlayerByName(name) != null) continue;
-            var profile = server.services().nameToIdCache().get(name);
-            if (profile.isEmpty()) continue;
-            String uuid = profile.get().id().toString();
-            if (patchOfflinePlayerData(playerDirectory, uuid, data)) {
-                players.putIfAbsent(uuid, data);
-                pendingNames.remove(name);
-            }
-            save();
-        }
-        for (var entry : players.entrySet()) {
-            PlayerData data = entry.getValue();
-            if (data.legacyBase == null && data.previousGameMode == null) continue;
-            boolean online = server.getPlayerList().getPlayers().stream()
-                    .anyMatch(player -> player.getUUID().toString().equals(entry.getKey()));
-            if (!online) {
-                patchOfflinePlayerData(playerDirectory, entry.getKey(), data);
-                save();
-            }
-        }
-    }
-
-    private boolean patchOfflinePlayerData(Path playerDirectory, String uuid, PlayerData data) throws IOException {
-        Path playerFile = playerDirectory.resolve(uuid + ".dat");
-        if (!Files.exists(playerFile)) return false;
-        CompoundTag tag;
-        try {
-            tag = NbtIo.readCompressed(playerFile, NbtAccounter.unlimitedHeap());
-        } catch (IOException exception) {
-            // Keep the pending record. A corrupt or incompatible file is never overwritten.
-            return false;
-        }
-        boolean changed = false;
-        boolean healthResolved = data.legacyBase == null;
-        if (!healthResolved) {
-            var attributes = tag.getList("attributes");
-            boolean foundMaxHealth = false;
-            if (attributes.isPresent()) {
-                ListTag list = attributes.get();
-                for (int index = 0; index < list.size(); index++) {
-                    var attribute = list.getCompound(index);
-                    if (attribute.isEmpty() || !attribute.get().getString("id")
-                            .orElse("").equals("minecraft:max_health")) continue;
-                    foundMaxHealth = true;
-                    var savedBase = attribute.get().getDouble("base");
-                    if (savedBase.isPresent() && data.legacyScore != null
-                            && Math.abs(savedBase.get() - data.legacyScore) < 0.001) {
-                        attribute.get().putDouble("base", data.legacyBase);
-                        changed = true;
-                        healthResolved = true;
-                    } else if (savedBase.isPresent()
-                            && Math.abs(savedBase.get() - data.legacyBase) < 0.001) {
-                        healthResolved = true;
-                    }
-                    break;
-                }
-            }
-            if (!foundMaxHealth && Math.abs(data.legacyBase - 20.0) < 0.001)
-                healthResolved = true;
-        }
-        boolean modeResolved = data.previousGameMode == null;
-        if (!modeResolved) {
-            var currentMode = tag.getInt("playerGameType");
-            if (currentMode.isPresent() && currentMode.get() == GameType.SPECTATOR.getId()) {
-                tag.putInt("playerGameType", data.previousGameMode);
-                tag.putInt("previousPlayerGameType", data.previousGameMode);
-                changed = true;
-                modeResolved = true;
-            } else if (currentMode.isPresent()) {
-                modeResolved = true;
-            }
-        }
-        if (changed) {
-            Path temporary = playerFile.resolveSibling(playerFile.getFileName() + ".fractured-hearts.tmp");
-            NbtIo.writeCompressed(tag, temporary);
-            try {
-                Files.move(temporary, playerFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
-                Files.move(temporary, playerFile, StandardCopyOption.REPLACE_EXISTING);
-            }
-        }
-        if (healthResolved) {
-            data.legacyBase = null;
-            data.legacyScore = null;
-        }
-        if (modeResolved) data.previousGameMode = null;
-        return healthResolved && modeResolved;
     }
 
     void save() throws IOException {

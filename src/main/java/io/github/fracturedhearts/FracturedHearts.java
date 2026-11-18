@@ -24,7 +24,6 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.ReadOnlyScoreInfo;
 import org.slf4j.Logger;
@@ -100,11 +99,6 @@ public final class FracturedHearts implements ModInitializer {
                 Config config = loadConfig(server);
                 hearts = HeartStore.load(server);
                 hearts.importAndDropScoreboards(server);
-                try {
-                    hearts.migrateOfflinePlayerData(server);
-                } catch (IOException exception) {
-                    LOGGER.warn("Could not finish offline player migration; unresolved players remain pending", exception);
-                }
                 runCommand(server, "schedule clear fractured_hearts:internals/loop");
                 runCommand(server, "schedule clear fractured_hearts:pvp/cleanup_killer_tags");
                 currentConfig = config;
@@ -174,7 +168,7 @@ public final class FracturedHearts implements ModInitializer {
         if (hearts == null || uninstalled) return;
         try {
             HeartStore.PlayerData data = hearts.getOrCreate(player, currentConfig.maxHealth);
-            // Tags left by older datapack builds are no longer used by the mod.
+            // Player preferences from the original datapack are no longer stored as tags.
             for (String tag : java.util.List.copyOf(player.entityTags())) {
                 if (tag.equals("fractured_hearts.sounds_off")) data.soundsOff = true;
                 if (tag.equals("fractured_hearts.messages_off")) data.messagesOff = true;
@@ -184,13 +178,6 @@ public final class FracturedHearts implements ModInitializer {
             hearts.save();
             runPlayerCommand(player, "advancement revoke @s only fractured_hearts:health_gain");
             apply(player);
-            if (data.previousGameMode != null) {
-                if (player.gameMode() == GameType.SPECTATOR) {
-                    player.setGameMode(GameType.byId(data.previousGameMode));
-                }
-                data.previousGameMode = null;
-                hearts.save();
-            }
             if (data.permadead) disconnectPermadead(player);
         } catch (IOException exception) {
             LOGGER.error("Could not load heart data for {}", player.getName().getString(), exception);
@@ -367,14 +354,8 @@ public final class FracturedHearts implements ModInitializer {
             source.sendFailure(Component.literal("Fractured Hearts world data is not active."));
             return 0;
         }
-        try {
-            hearts.migrateOfflinePlayerData(server);
-        } catch (IOException exception) {
-            source.sendFailure(Component.literal("Could not finish offline migration: " + exception.getMessage()));
-            return 0;
-        }
         if (hearts.hasPendingLegacyPlayers() || hearts.hasOfflineCleanup(server)) {
-            source.sendFailure(Component.literal("Uninstall stopped: some legacy saved health or game modes remain unresolved. Affected players must join or be repaired manually."));
+            source.sendFailure(Component.literal("Uninstall stopped: an imported datapack health base still needs an offline player to join."));
             return 0;
         }
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
@@ -396,10 +377,6 @@ public final class FracturedHearts implements ModInitializer {
             AttributeInstance attribute = player.getAttribute(Attributes.MAX_HEALTH);
             if (attribute != null) attribute.removeModifier(HEALTH_MODIFIER_ID);
             player.setHealth(player.getMaxHealth());
-            HeartStore.PlayerData data = hearts.get(player);
-            if (data != null && data.previousGameMode != null && player.gameMode() == GameType.SPECTATOR) {
-                player.setGameMode(GameType.byId(data.previousGameMode));
-            }
             runPlayerCommand(player, "advancement revoke @s only fractured_hearts:health_gain");
         }
         source.sendSuccess(() -> Component.literal(
