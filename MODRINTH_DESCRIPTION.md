@@ -8,9 +8,7 @@
 
 # 💔 Fractured Hearts
 
-Fractured Hearts changes what death costs in Minecraft. By default, dying reduces your maximum health by one heart until you reach the one-heart minimum. Craft and eat enchanted golden apples to earn those hearts back.
-
-For the intended experience, enable Keep Inventory with `/gamerule keep_inventory true`. You keep your items and experience when you die. Losing maximum health still gives you a reason to stay alive.
+Fractured Hearts changes what death costs in Minecraft. By default, dying reduces your maximum health by one heart until you reach the three-heart minimum. Craft and eat enchanted golden apples to earn those hearts back.
 
 Both editions target Minecraft 26.3. See the [README](README.md) for build and technical details.
 
@@ -31,7 +29,7 @@ When enabled and another death would take a player below the minimum health, the
 
 ## Install and Remove
 
-**Standalone datapack.** Add the pack to the vanilla single-player world you want to play. It requires no mod loader or mods. The pack and Keep Inventory setting are per world, so your other worlds can keep vanilla death behavior.
+**Standalone datapack.** Add the pack to the vanilla single-player world you want to play. It requires no mod loader or mods. The pack applies per world, so your other worlds can keep vanilla death behavior.
 
 **Fabric mod.** For servers and modpacks, the heart penalty is active by default in every world that runs with the mod. Install the JAR with Fabric Loader and Fabric API for Minecraft 26.3. On a dedicated server, install it server-side. Players can join with vanilla clients. Remove any Fractured Hearts datapack from the world before starting it with the mod.
 
@@ -50,7 +48,7 @@ The standalone datapack cannot restore offline players' health on uninstall. See
 ## Default Settings for This Fork
 
 - Max Hearts: 10 (20 health)
-- Min Hearts: 1 (2 health)
+- Min Hearts: 3 (6 health)
 - Loss per Death: 1 heart
 - Gain per Apple: 1 heart
 - Starting Hearts: 10 (20 health)
@@ -66,7 +64,7 @@ On first server start, the Fabric mod creates `config/fractured-hearts.json`. On
 ```json
 {
   "maxHealth": 20,
-  "minimumHealth": 2,
+  "minimumHealth": 6,
   "healthPerApple": 2,
   "healthLostPerDeath": 2,
   "permadeath": false,

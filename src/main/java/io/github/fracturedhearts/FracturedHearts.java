@@ -2,6 +2,7 @@ package io.github.fracturedhearts;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -401,8 +402,12 @@ public final class FracturedHearts implements ModInitializer {
             return config;
         }
         try (Reader reader = Files.newBufferedReader(CONFIG_PATH, StandardCharsets.UTF_8)) {
-            Config config = GSON.fromJson(reader, Config.class);
-            if (config == null) throw new JsonParseException("Config must be a JSON object");
+            JsonObject settings = GSON.fromJson(reader, JsonObject.class);
+            if (settings == null) throw new JsonParseException("Config must be a JSON object");
+            Config config = GSON.fromJson(settings, Config.class);
+            if (!settings.has("minimumHealth") || settings.get("minimumHealth").isJsonNull()) {
+                config.minimumHealth = Math.min(config.minimumHealth, config.maxHealth);
+            }
             config.validate();
             return config;
         }
@@ -417,7 +422,7 @@ public final class FracturedHearts implements ModInitializer {
         Integer permadeath = scoreboardSetting(server, "fractured_hearts.permadeath");
         Integer heartSteal = scoreboardSetting(server, "fractured_hearts.heart_steal");
         if (ceiling != null) config.maxHealth = ceiling;
-        if (floor != null) config.minimumHealth = floor;
+        config.minimumHealth = floor != null ? floor : Math.min(config.minimumHealth, config.maxHealth);
         if (gain != null) config.healthPerApple = gain;
         if (loss != null) config.healthLostPerDeath = loss;
         if (permadeath != null) config.permadeath = permadeath == 1;
@@ -458,7 +463,7 @@ public final class FracturedHearts implements ModInitializer {
     public static final class Config {
         // Values are health points: 2 points = 1 heart.
         public int maxHealth = 20;
-        public int minimumHealth = 2;
+        public int minimumHealth = 6;
         public int healthPerApple = 2;
         public int healthLostPerDeath = 2;
         public boolean permadeath = false;

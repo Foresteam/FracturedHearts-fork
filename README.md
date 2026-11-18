@@ -11,7 +11,7 @@ On the first server start, the mod writes `config/fractured-hearts.json`. On a n
 ```json
 {
   "maxHealth": 20,
-  "minimumHealth": 2,
+  "minimumHealth": 6,
   "healthPerApple": 2,
   "healthLostPerDeath": 2,
   "permadeath": false,
@@ -19,7 +19,7 @@ On the first server start, the mod writes `config/fractured-hearts.json`. On a n
 }
 ```
 
-Health values are **health points**, where 2 points equal 1 heart. Edit the file and run `/fracturedhearts reload` or restart the server. Existing player totals are preserved, except that totals above a newly lowered cap are clamped. Remove the old datapack from the world when installing this mod so its functions do not keep running.
+Health values are **health points**, where 2 points equal 1 heart. The default minimum is 3 hearts. If you omit `minimumHealth` and set a lower `maxHealth`, the minimum defaults to that maximum. Edit the file and run `/fracturedhearts reload` or restart the server. Existing player totals are preserved, except that totals above a newly lowered cap are clamped. Remove the old datapack from the world when installing this mod so its functions do not keep running.
 
 The default cap is 20 health points (10 hearts). If the JSON config does not exist, the mod imports any existing Fractured Hearts scoreboard settings into the new file, using fork defaults for missing settings. On later starts, it loads the JSON config without replacing it. If you have a custom config with `maxHealth` set to 40, change it manually to use the fork's 20-point default.
 

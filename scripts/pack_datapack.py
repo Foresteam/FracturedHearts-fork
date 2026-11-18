@@ -21,7 +21,7 @@ def project_version():
 
 DEFAULTS = {
     "maxHealth": 20,
-    "minimumHealth": 2,
+    "minimumHealth": 6,
     "healthPerApple": 2,
     "healthLostPerDeath": 2,
     "permadeath": False,
@@ -31,6 +31,7 @@ DEFAULTS = {
 
 def settings(config_path):
     result = DEFAULTS.copy()
+    parsed = {}
     if config_path:
         parsed = json.loads(config_path.read_text(encoding="utf-8"))
         if not isinstance(parsed, dict) or set(parsed) - set(result):
@@ -39,6 +40,8 @@ def settings(config_path):
     for key in ("maxHealth", "minimumHealth", "healthPerApple", "healthLostPerDeath"):
         if type(result[key]) is not int:
             raise ValueError(f"{key} must be an integer")
+    if "minimumHealth" not in parsed:
+        result["minimumHealth"] = min(result["minimumHealth"], result["maxHealth"])
     for key in ("permadeath", "pvpHeartSteal"):
         if type(result[key]) is not bool:
             raise ValueError(f"{key} must be true or false")
