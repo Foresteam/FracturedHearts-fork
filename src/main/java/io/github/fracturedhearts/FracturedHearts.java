@@ -16,7 +16,6 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.server.permissions.LevelBasedPermissionSet;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.resources.Identifier;
@@ -43,6 +42,7 @@ public final class FracturedHearts implements ModInitializer {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("fractured-hearts.json");
     private static final Identifier HEALTH_MODIFIER_ID = Identifier.fromNamespaceAndPath("fractured_hearts", "maximum_health");
+    private static final Identifier HEALTH_GAIN_ADVANCEMENT_ID = Identifier.fromNamespaceAndPath("fractured_hearts", "health_gain");
     private static Config currentConfig = new Config();
     private static HeartStore hearts;
     private static boolean uninstalled;
@@ -176,7 +176,7 @@ public final class FracturedHearts implements ModInitializer {
                 if (tag.startsWith("fractured_hearts.")) player.removeTag(tag);
             }
             hearts.save();
-            runPlayerCommand(player, "advancement revoke @s only fractured_hearts:health_gain");
+            resetHealthGainAdvancement(player);
             apply(player);
             if (data.permadead) disconnectPermadead(player);
         } catch (IOException exception) {
@@ -264,9 +264,13 @@ public final class FracturedHearts implements ModInitializer {
         }
     }
 
-    private static void runPlayerCommand(ServerPlayer player, String command) {
-        player.level().getServer().getCommands().performPrefixedCommand(
-                player.createCommandSourceStack().withPermission(LevelBasedPermissionSet.GAMEMASTER), command);
+    private static void resetHealthGainAdvancement(ServerPlayer player) {
+        var advancement = player.level().getServer().getAdvancements().get(HEALTH_GAIN_ADVANCEMENT_ID);
+        if (advancement == null) return;
+        var advancements = player.getAdvancements();
+        for (String criterion : advancements.getOrStartProgress(advancement).getCompletedCriteria()) {
+            advancements.revoke(advancement, criterion);
+        }
     }
 
     private static int status(CommandSourceStack source) {
@@ -377,7 +381,7 @@ public final class FracturedHearts implements ModInitializer {
             AttributeInstance attribute = player.getAttribute(Attributes.MAX_HEALTH);
             if (attribute != null) attribute.removeModifier(HEALTH_MODIFIER_ID);
             player.setHealth(player.getMaxHealth());
-            runPlayerCommand(player, "advancement revoke @s only fractured_hearts:health_gain");
+            resetHealthGainAdvancement(player);
         }
         source.sendSuccess(() -> Component.literal(
                 "Fractured Hearts world data removed. Stop the server and remove the JAR."), true);
