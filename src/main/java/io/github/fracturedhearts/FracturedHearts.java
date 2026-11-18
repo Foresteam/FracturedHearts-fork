@@ -173,8 +173,7 @@ public final class FracturedHearts implements ModInitializer {
     private static void join(ServerPlayer player) {
         if (hearts == null || uninstalled) return;
         try {
-            HeartStore.PlayerData data = hearts.getOrCreate(player,
-                    (int) Math.round(player.getAttributeValue(Attributes.MAX_HEALTH)));
+            HeartStore.PlayerData data = hearts.getOrCreate(player, currentConfig.maxHealth);
             // Tags left by older datapack builds are no longer used by the mod.
             for (String tag : java.util.List.copyOf(player.entityTags())) {
                 if (tag.equals("fractured_hearts.sounds_off")) data.soundsOff = true;
