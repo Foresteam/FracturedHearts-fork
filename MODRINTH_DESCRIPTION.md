@@ -8,11 +8,11 @@
 
 # 💔 Fractured Hearts
 
-This mod targets Minecraft 26.3. The standalone datapack is intended for existing vanilla worlds; the Fabric mod is intended for servers and modpacks and adds file-based configuration. See the [README](README.md) for build and technical details. I liked the idea of the original mod, but didn't like how it behaves on servers/modpacks, and its defaults - so chose to fork.
+Fractured Hearts changes what death costs in Minecraft. By default, dying reduces your maximum health by one heart until you reach the one-heart minimum. Craft and eat enchanted golden apples to earn those hearts back.
 
-Every death shatters your hearts. Recover them with rare apples, or face oblivion.
+For the intended experience, enable Keep Inventory with `/gamerule keep_inventory true`. You keep your items and experience when you die. Losing maximum health still gives you a reason to stay alive.
 
-Fractured Hearts adds a permanent death penalty system to Minecraft — each time you die, you lose hearts. Recover them by crafting expensive enchanted golden apples, or enable permadeath for the ultimate hardcore challenge. Steal hearts from your enemies in PvP, customize everything, and make every decision matter.
+Both editions target Minecraft 26.3. See the [README](README.md) for build and technical details.
 
 ### ❤️ Heart Recovery
 
@@ -31,9 +31,11 @@ When enabled and another death would take a player below the minimum health, the
 
 ## Install and Remove
 
-For an existing vanilla world, use the standalone datapack. For a server or modpack, install the Fabric mod JAR with Fabric Loader and Fabric API for Minecraft 26.3 **on the server only**. Players can join with vanilla clients; they do not need Fabric. If this world already has the original Fractured Hearts datapack, remove that datapack before starting with the mod so its functions do not keep running. Do not install the standalone datapack and Fabric mod in the same world.
+**Standalone datapack.** Add the pack to the vanilla single-player world you want to play. It requires no mod loader or mods. The pack and Keep Inventory setting are per world, so your other worlds can keep vanilla death behavior.
 
-To remove the **Fabric mod** from a world that has only run this build, stop the server and remove the JAR. Heart totals and permadeath lockouts live in a world data file, and the health modifier is transient: without the mod, normal maximum health returns. Players recover normally on their next death and respawn. The world data file and server config can be deleted separately.
+**Fabric mod.** For servers and modpacks, the heart penalty is active by default in every world that runs with the mod. Install the JAR with Fabric Loader and Fabric API for Minecraft 26.3. On a dedicated server, install it server-side. Players can join with vanilla clients. Remove any Fractured Hearts datapack from the world before starting it with the mod.
+
+You can safely remove the **Fabric mod** from a world that has only used the Fabric edition of this fork. Stop the server or close the game, remove the JAR, and reopen the world. The mod's temporary health modifier disappears and normal maximum health returns. Heart totals and permadeath lockouts live in a separate world data file. You can delete that file and the mod's config separately.
 
 For a world migrated from the original datapack, use the cleanup command:
 
@@ -103,3 +105,5 @@ The original `/function` and `/trigger` commands remain available in the standal
 ## Attribution
 Based on the [original Modrinth datapack description](https://modrinth.com/datapack/fractured-hearts)
 Foresteam maintains this independent fork of [Renthy's original Fractured Hearts datapack](https://modrinth.com/datapack/fractured-hearts), licensed under GNU Lesser General Public License v3.0 only. See [LICENSE](LICENSE) for the license text.
+
+I liked the idea behind the original datapack and forked it to change its defaults and how it behaves on servers and in modpacks.
