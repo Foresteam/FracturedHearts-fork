@@ -1,6 +1,6 @@
 # 💔 Fractured Hearts
 
-Based on the [original Modrinth datapack description](https://modrinth.com/datapack/fractured-hearts). This fork targets Minecraft 26.3. The standalone datapack is intended for existing vanilla worlds; the Fabric mod is intended for servers and modpacks and adds file-based configuration. See the [README](README.md) for build and technical details.
+This mod targets Minecraft 26.3. The standalone datapack is intended for existing vanilla worlds; the Fabric mod is intended for servers and modpacks and adds file-based configuration. See the [README](README.md) for build and technical details. I liked the idea of the original mod, but didn't like how it behaves on servers/modpacks, and its defaults - so chose to fork.
 
 Every death shatters your hearts. Recover them with rare apples, or face oblivion.
 
@@ -93,5 +93,5 @@ Fabric mod commands:
 The original `/function` and `/trigger` commands remain available in the standalone datapack. The Fabric mod does not install those datapack functions or scoreboard triggers.
 
 ## Attribution
-
+Based on the [original Modrinth datapack description](https://modrinth.com/datapack/fractured-hearts)
 Foresteam maintains this independent fork of [Renthy's original Fractured Hearts datapack](https://modrinth.com/datapack/fractured-hearts), licensed under GNU Lesser General Public License v3.0 only. See [LICENSE](LICENSE) for the license text.
