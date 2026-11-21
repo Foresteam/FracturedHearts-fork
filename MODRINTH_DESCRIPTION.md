@@ -4,6 +4,7 @@
 3. Suggest using it together with a partial inventory/xp saver, for a more reasonable alternative (IMHO) to `keepInventory` and grave mods: to make death extremely undesirable, but not devastating.
 4. To me, Fabric is actually preferable in any case, as the worst that could happen is everything returns to default, instead of making the world unloadable or locking health at a non-standard value. So the DP is probably rather for non-fabric clients/servers, or unsupported versions.
 5. Install and remove instructions seem rather complex, so should be verified and tested.
+6. Make the mod configurable through commands as well (why not)
 
 # 💔 Fractured Hearts
 
