@@ -1,3 +1,10 @@
+# TODO
+1. Restore permadeath behavior: spectator mode is fine for a completely dead player and eassily reversible, unlike scoreboards and player attributes.
+2. Recheck defaults, 3 hears should be the minimum, so the gameplay is not completely miserable.
+3. Suggest using it together with a partial inventory/xp saver, for a more reasonable alternative (IMHO) to `keepInventory` and grave mods: to make death extremely undesirable, but not devastating.
+4. To me, Fabric is actually preferable in any case, as the worst that could happen is everything returns to default, instead of making the world unloadable or locking health at a non-standard value. So the DP is probably rather for non-fabric clients/servers, or unsupported versions.
+5. Install and remove instructions seem rather complex, so should be verified and tested.
+
 # 💔 Fractured Hearts
 
 This mod targets Minecraft 26.3. The standalone datapack is intended for existing vanilla worlds; the Fabric mod is intended for servers and modpacks and adds file-based configuration. See the [README](README.md) for build and technical details. I liked the idea of the original mod, but didn't like how it behaves on servers/modpacks, and its defaults - so chose to fork.
@@ -35,7 +42,7 @@ For a world migrated from the original datapack, use the cleanup command:
 
 On first start, the mod copies original datapack player scores into `world/data/fractured-hearts.json`, imports old scoreboard settings into its config if needed, then deletes its old scoreboard objectives. Saved datapack health bases are restored when each affected player joins. The original datapack did not record the earlier base, so migration assumes vanilla's 20 health points; customized bases that cannot be safely identified need manual cleanup. The uninstall command removes the world data file, removes active modifiers, and restores online players to full health. It refuses to run while datapack cleanup still needs an offline player. Migration from previous fork builds is not supported.
 
-The standalone datapack cannot safely restore offline players' health on uninstall. See the [README](README.md#standalone-datapack) for its technical limits.
+The standalone datapack cannot restore offline players' health on uninstall. See the [README](README.md#standalone-datapack) for its technical limits.
 
 ## Default Settings for This Fork
 
