@@ -1,20 +1,20 @@
 # TODO
 1. Restore permadeath behavior: spectator mode is fine for a completely dead player and eassily reversible, unlike scoreboards and player attributes.
-2. Recheck defaults, 3 hears should be the minimum, so the gameplay is not completely miserable.
-3. Suggest using it together with a partial inventory/xp saver, for a more reasonable alternative (IMHO) to `keepInventory` and grave mods: to make death extremely undesirable, but not devastating.
-4. To me, Fabric is actually preferable in any case, as the worst that could happen is everything returns to default, instead of making the world unloadable or locking health at a non-standard value. So the DP is probably rather for non-fabric clients/servers, or unsupported versions.
-5. Install and remove instructions seem rather complex, so should be verified and tested.
-6. Make the mod configurable through commands as well (why not)
+2. Suggest using it together with a partial inventory/xp saver, for a more reasonable alternative (IMHO) to `keepInventory` and grave mods: to make death extremely undesirable, but not devastating.
+3. To me, Fabric is actually preferable in any case, as the worst that could happen is everything returns to default, instead of making the world unloadable or locking health at a non-standard value. So the DP is probably rather for non-fabric clients/servers, or unsupported versions.
+4. Install and remove instructions seem rather complex, so should be verified and tested.
+5. Make the mod configurable through commands as well (why not)
 
 # 💔 Fractured Hearts
 
-Fractured Hearts changes what death costs in Minecraft. By default, dying reduces your maximum health by one heart until you reach the three-heart minimum. Craft and eat enchanted golden apples to earn those hearts back.
+Fractured Hearts changes what death costs in Minecraft. By default, dying reduces your maximum health by one heart until you reach the two-heart minimum. Eat golden apples to earn those hearts back.
 
 Both editions target Minecraft 26.3. See the [README](README.md) for build and technical details.
 
 ### ❤️ Heart Recovery
 
-- Craft Enchanted Golden Apples to restore lost hearts
+- Regular golden apples restore up to one heart of maximum health per apple, up to six hearts by default.
+- Enchanted golden apples can restore hearts up to the global maximum. You can craft them using the recipe below.
 
 ![Recipe for enchanted golden apple](https://cdn.modrinth.com/data/cached_images/dca3530806f8d7fe1e337a19d8d90cc87c9fe4ca.png)
 
@@ -48,9 +48,10 @@ The standalone datapack cannot restore offline players' health on uninstall. See
 ## Default Settings for This Fork
 
 - Max Hearts: 10 (20 health)
-- Min Hearts: 3 (6 health)
+- Min Hearts: 2 (4 health)
 - Loss per Death: 1 heart
 - Gain per Apple: 1 heart
+- Regular Golden Apple Cap: 6 hearts (12 health)
 - Starting Hearts: 10 (20 health)
 - Permadeath: Disabled
 - Heart Steal: Disabled
@@ -64,15 +65,16 @@ On first server start, the Fabric mod creates `config/fractured-hearts.json`. On
 ```json
 {
   "maxHealth": 20,
-  "minimumHealth": 6,
+  "minimumHealth": 4,
   "healthPerApple": 2,
+  "regularAppleHealthCap": 12,
   "healthLostPerDeath": 2,
   "permadeath": false,
   "pvpHeartSteal": false
 }
 ```
 
-These numbers are **health points**: 2 health points equal 1 heart. Edit the file, then run `/fracturedhearts reload` or restart the server. Admin commands also change the settings and save them to the file immediately:
+These numbers are **health points**: 2 health points equal 1 heart. Set `regularAppleHealthCap` to 0 to disable max-health recovery from regular golden apples. Edit the file, then run `/fracturedhearts reload` or restart the server. The following admin commands save their settings to the file immediately:
 
 | Command | Description |
 | --- | --- |

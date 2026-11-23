@@ -18,4 +18,5 @@ scoreboard objectives add fractured_hearts_status trigger "Status"
 scoreboard objectives add fractured_hearts.permadeath dummy "Permadeath Enabled"
 scoreboard objectives add fractured_hearts.heart_steal dummy "Heart Steal Enabled"
 execute unless score $fractured_hearts.fakeplayer fractured_hearts.ceiling matches 0.. run function fractured_hearts:options/default_settings
+execute unless score #regular_apple_cap fractured_hearts.toggle matches 0.. run function fractured_hearts:options/default_regular_apple_cap
 schedule function fractured_hearts:internals/loop 20t replace

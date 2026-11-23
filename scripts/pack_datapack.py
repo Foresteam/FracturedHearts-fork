@@ -21,8 +21,9 @@ def project_version():
 
 DEFAULTS = {
     "maxHealth": 20,
-    "minimumHealth": 6,
+    "minimumHealth": 4,
     "healthPerApple": 2,
+    "regularAppleHealthCap": 12,
     "healthLostPerDeath": 2,
     "permadeath": False,
     "pvpHeartSteal": False,
@@ -37,7 +38,7 @@ def settings(config_path):
         if not isinstance(parsed, dict) or set(parsed) - set(result):
             raise ValueError("Config must contain only recognized settings")
         result.update(parsed)
-    for key in ("maxHealth", "minimumHealth", "healthPerApple", "healthLostPerDeath"):
+    for key in ("maxHealth", "minimumHealth", "healthPerApple", "regularAppleHealthCap", "healthLostPerDeath"):
         if type(result[key]) is not int:
             raise ValueError(f"{key} must be an integer")
     if "minimumHealth" not in parsed:
@@ -50,6 +51,8 @@ def settings(config_path):
     for key in ("healthPerApple", "healthLostPerDeath"):
         if not 1 <= result[key] <= result["maxHealth"]:
             raise ValueError(f"{key} must be between 1 and maxHealth")
+    if not 0 <= result["regularAppleHealthCap"] <= 1024:
+        raise ValueError("regularAppleHealthCap must be between 0 and 1024")
     return result
 
 
@@ -62,15 +65,21 @@ def default_function(config):
         ("permadeath", int(config["permadeath"])),
         ("heart_steal", int(config["pvpHeartSteal"])),
     ]
-    return "".join(
+    settings = "".join(
         f"scoreboard players set $fractured_hearts.fakeplayer fractured_hearts.{name} {value}\n"
         for name, value in values
     )
+    return settings + "function fractured_hearts:options/default_regular_apple_cap\n"
 
 
 def transformed_function(relative, source, config):
     if relative == "options/default_settings.mcfunction":
         return default_function(config)
+    if relative == "options/default_regular_apple_cap.mcfunction":
+        return (
+            "scoreboard players set #regular_apple_cap fractured_hearts.toggle "
+            f"{config['regularAppleHealthCap']}\n"
+        )
     if relative == "options/uninstall.mcfunction":
         return ('tellraw @s {"text":"Remove the datapack after resetting affected players. '
                 'Offline player health cannot be safely restored by a datapack.","color":"yellow"}\n')

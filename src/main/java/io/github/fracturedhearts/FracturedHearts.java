@@ -44,6 +44,7 @@ public final class FracturedHearts implements ModInitializer {
     private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("fractured-hearts.json");
     private static final Identifier HEALTH_MODIFIER_ID = Identifier.fromNamespaceAndPath("fractured_hearts", "maximum_health");
     private static final Identifier HEALTH_GAIN_ADVANCEMENT_ID = Identifier.fromNamespaceAndPath("fractured_hearts", "health_gain");
+    private static final Identifier REGULAR_HEALTH_GAIN_ADVANCEMENT_ID = Identifier.fromNamespaceAndPath("fractured_hearts", "regular_health_gain");
     private static Config currentConfig = new Config();
     private static HeartStore hearts;
     private static boolean uninstalled;
@@ -59,7 +60,9 @@ public final class FracturedHearts implements ModInitializer {
                             .then(Commands.literal("particles").executes(context -> toggle(context.getSource(), "particles"))))
                     .then(Commands.literal("consumeapple")
                             .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
-                            .executes(context -> consumeApple(context.getSource())))
+                            .executes(context -> consumeApple(context.getSource(), false))
+                            .then(Commands.literal("regular")
+                                    .executes(context -> consumeApple(context.getSource(), true))))
                     .then(Commands.literal("reload")
                             .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                             .executes(context -> reload(context.getSource())))
@@ -177,7 +180,8 @@ public final class FracturedHearts implements ModInitializer {
                 if (tag.startsWith("fractured_hearts.")) player.removeTag(tag);
             }
             hearts.save();
-            resetHealthGainAdvancement(player);
+            resetHealthGainAdvancement(player, HEALTH_GAIN_ADVANCEMENT_ID);
+            resetHealthGainAdvancement(player, REGULAR_HEALTH_GAIN_ADVANCEMENT_ID);
             apply(player);
             if (data.permadead) disconnectPermadead(player);
         } catch (IOException exception) {
@@ -265,8 +269,8 @@ public final class FracturedHearts implements ModInitializer {
         }
     }
 
-    private static void resetHealthGainAdvancement(ServerPlayer player) {
-        var advancement = player.level().getServer().getAdvancements().get(HEALTH_GAIN_ADVANCEMENT_ID);
+    private static void resetHealthGainAdvancement(ServerPlayer player, Identifier id) {
+        var advancement = player.level().getServer().getAdvancements().get(id);
         if (advancement == null) return;
         var advancements = player.getAdvancements();
         for (String criterion : advancements.getOrStartProgress(advancement).getCompletedCriteria()) {
@@ -301,16 +305,21 @@ public final class FracturedHearts implements ModInitializer {
         return 1;
     }
 
-    private static int consumeApple(CommandSourceStack source) {
+    private static int consumeApple(CommandSourceStack source, boolean regular) {
         ServerPlayer player = source.getPlayer();
         if (player == null || hearts == null || uninstalled) return 0;
         HeartStore.PlayerData data = hearts.get(player);
         if (data == null || data.excluded || data.permadead) return 0;
-        if (data.points + currentConfig.healthPerApple > currentConfig.maxHealth) {
+        int gain = currentConfig.healthPerApple;
+        if (regular) {
+            int cap = Math.min(currentConfig.regularAppleHealthCap, currentConfig.maxHealth);
+            gain = Math.min(gain, cap - data.points);
+            if (gain <= 0) return 0;
+        } else if (data.points + gain > currentConfig.maxHealth) {
             player.sendSystemMessage(Component.literal("You are already too close to the maximum health to gain hearts."));
             return 0;
         }
-        data.points += currentConfig.healthPerApple;
+        data.points += gain;
         apply(player);
         feedback(player, data, true);
         saveHearts();
@@ -382,7 +391,8 @@ public final class FracturedHearts implements ModInitializer {
             AttributeInstance attribute = player.getAttribute(Attributes.MAX_HEALTH);
             if (attribute != null) attribute.removeModifier(HEALTH_MODIFIER_ID);
             player.setHealth(player.getMaxHealth());
-            resetHealthGainAdvancement(player);
+            resetHealthGainAdvancement(player, HEALTH_GAIN_ADVANCEMENT_ID);
+            resetHealthGainAdvancement(player, REGULAR_HEALTH_GAIN_ADVANCEMENT_ID);
         }
         source.sendSuccess(() -> Component.literal(
                 "Fractured Hearts world data removed. Stop the server and remove the JAR."), true);
@@ -463,8 +473,9 @@ public final class FracturedHearts implements ModInitializer {
     public static final class Config {
         // Values are health points: 2 points = 1 heart.
         public int maxHealth = 20;
-        public int minimumHealth = 6;
+        public int minimumHealth = 4;
         public int healthPerApple = 2;
+        public int regularAppleHealthCap = 12;
         public int healthLostPerDeath = 2;
         public boolean permadeath = false;
         public boolean pvpHeartSteal = false;
@@ -475,6 +486,7 @@ public final class FracturedHearts implements ModInitializer {
             maxHealth = other.maxHealth;
             minimumHealth = other.minimumHealth;
             healthPerApple = other.healthPerApple;
+            regularAppleHealthCap = other.regularAppleHealthCap;
             healthLostPerDeath = other.healthLostPerDeath;
             permadeath = other.permadeath;
             pvpHeartSteal = other.pvpHeartSteal;
@@ -485,6 +497,8 @@ public final class FracturedHearts implements ModInitializer {
                 throw new IllegalArgumentException("Require 1 <= minimumHealth <= maxHealth <= 1024");
             if (healthPerApple < 1 || healthPerApple > maxHealth)
                 throw new IllegalArgumentException("healthPerApple must be between 1 and maxHealth");
+            if (regularAppleHealthCap < 0 || regularAppleHealthCap > 1024)
+                throw new IllegalArgumentException("regularAppleHealthCap must be between 0 and 1024");
             if (healthLostPerDeath < 1 || healthLostPerDeath > maxHealth)
                 throw new IllegalArgumentException("healthLostPerDeath must be between 1 and maxHealth");
         }

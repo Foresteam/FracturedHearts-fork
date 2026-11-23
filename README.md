@@ -11,15 +11,18 @@ On the first server start, the mod writes `config/fractured-hearts.json`. On a n
 ```json
 {
   "maxHealth": 20,
-  "minimumHealth": 6,
+  "minimumHealth": 4,
   "healthPerApple": 2,
+  "regularAppleHealthCap": 12,
   "healthLostPerDeath": 2,
   "permadeath": false,
   "pvpHeartSteal": false
 }
 ```
 
-Health values are **health points**, where 2 points equal 1 heart. The default minimum is 3 hearts. If you omit `minimumHealth` and set a lower `maxHealth`, the minimum defaults to that maximum. Edit the file and run `/fracturedhearts reload` or restart the server. Existing player totals are preserved, except that totals above a newly lowered cap are clamped. Remove the old datapack from the world when installing this mod so its functions do not keep running.
+Health values are **health points**, where 2 points equal 1 heart. The default minimum is 2 hearts. If you omit `minimumHealth` and set `maxHealth` below 4, the minimum defaults to that maximum. Edit the file and run `/fracturedhearts reload` or restart the server. Existing player totals are preserved, except that totals above a newly lowered global cap are clamped. Remove the old datapack from the world when installing this mod so its functions do not keep running.
+
+`healthPerApple` sets how much maximum health either kind of golden apple can restore. A regular golden apple restores up to that amount and stops at `regularAppleHealthCap` or `maxHealth`, whichever is lower. The regular apple cap defaults to 12 health points (6 hearts). Use 0 to disable max-health recovery from regular apples. Enchanted golden apples use the global maximum.
 
 The default cap is 20 health points (10 hearts). If the JSON config does not exist, the mod imports any existing Fractured Hearts scoreboard settings into the new file, using fork defaults for missing settings. On later starts, it loads the JSON config without replacing it. If you have a custom config with `maxHealth` set to 40, change it manually to use the fork's 20-point default.
 
@@ -50,7 +53,7 @@ Players imported from the original datapack must join once before removing the m
 
 ## Standalone datapack
 
-Run `python3 scripts/pack_datapack.py` to create `releases/fractured-hearts-datapack-1.0.1+26.3.zip`. To bake custom defaults into the pack, use `python3 scripts/pack_datapack.py --config config/fractured-hearts.json`. The ZIP uses vanilla admin functions; a standalone datapack cannot read or write a server JSON config at runtime. On an existing world, its baked defaults apply only if Fractured Hearts settings have not already been initialized in that world's scoreboard. The datapack cannot safely restore offline player health on uninstall.
+Run `python3 scripts/pack_datapack.py` to create `releases/fractured-hearts-datapack-1.0.1+26.3.zip`. To bake custom defaults into the pack, use `python3 scripts/pack_datapack.py --config config/fractured-hearts.json`. The ZIP uses vanilla admin functions; a standalone datapack cannot read or write a server JSON config at runtime. Existing worlds retain their scoreboard settings and use the baked regular apple cap the first time they load a pack with that setting. The datapack cannot safely restore offline player health on uninstall.
 
 ## License and attribution
 
@@ -60,4 +63,4 @@ LGPL-3.0-only; see [LICENSE](LICENSE). The copied datapack functions are by [Ren
 
 Requires JDK 25 or later and Gradle's dependencies from Maven. Run `python3 build-all.py` to build both the Fabric JAR and standalone datapack ZIP into `releases/`. Use `python3 build-all.py --offline` when Gradle dependencies are already cached, or `--config path/to/config.json` to bake custom datapack defaults. Install the JAR with Fabric Loader and Fabric API for Minecraft 26.3. The fork targets Loader 0.20.1 and Fabric API 0.166.2+26.3.
 
-The copied datapack remains under `src/main/resources/data/fractured_hearts/`; Gradle excludes its functions and advancements from the Fabric JAR and adds the mod's apple advancement from `fabric_resources/`. The standalone packer uses the copied datapack and vanilla function overrides. Pack metadata and advancement predicates were updated for Minecraft 26.3.
+The copied datapack remains under `src/main/resources/data/fractured_hearts/`; Gradle excludes its functions and advancements from the Fabric JAR and adds the mod's apple advancements from `fabric_resources/`. The standalone packer uses the copied datapack and vanilla function overrides. Pack metadata and advancement predicates were updated for Minecraft 26.3.

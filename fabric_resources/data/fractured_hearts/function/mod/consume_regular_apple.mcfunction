@@ -1,0 +1,2 @@
+fracturedhearts consumeapple regular
+advancement revoke @s only fractured_hearts:regular_health_gain
